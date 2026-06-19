@@ -1,0 +1,49 @@
+stock,total_return_x,cagr_pct,total_return_pct,beat_sensex
+Sesa Goa (Vedanta),185,61,18400,True
+Motherson Sumi,63,46,6200,True
+Havells India,51,43,5000,True
+Titan,44,41,4300,True
+LIC Housing Finance,37,39,3600,True
+Federal Bank,32,37,3100,True
+Bharat Electronics,30,36,2900,True
+Exide Inds,25,34,2400,True
+L&T,24,33,2300,True
+Blue Star,22,32,2100,True
+Ipca Labs,21,32,2000,True
+GE Shipping,20,31,1900,True
+HDFC,19,31,1800,True
+Adani Enterprises,17,30,1600,True
+Container Corpn,17,29,1600,True
+ABB,16,29,1500,True
+CRISIL,16,28,1500,True
+Asian Paints,15,28,1400,True
+SBI,15,28,1400,True
+GAIL India,14,27,1300,True
+Bharat Forge,13,26,1200,True
+Bosch,13,26,1200,True
+Dewan Housing (DHFL),12,25,1100,True
+Tata Steel,10,24,900,True
+Pidilite,9,23,800,True
+Nestle India,9,23,800,True
+Ashok Leyland,10,23,900,True
+Hero MotoCorp,10,23,900,True
+Grasim Inds,9,22,800,True
+Cummins India,9,22,800,True
+M&M,9,22,800,True
+Reliance,9,22,800,True
+Bajaj Auto,8,21,700,True
+ACC,8,21,700,True
+ITC,8,21,700,True
+Dabur India,7,20,600,True
+IOC,6,19,500,True
+Ambuja Cements,6,18,500,True
+Colgate-Palmolive,6,18,500,True
+GSK Consumer,5,15,400,True
+Cipla,4,13,300,True
+Hindalco,4,12,300,True
+GSK Pharma,4,12,300,True
+Britannia,3,11,200,True
+Infosys,3,11,200,True
+Pfizer,3,9,200,False
+Hind. Unilever,2,4,100,False
+Wipro,1,-1,0,False
