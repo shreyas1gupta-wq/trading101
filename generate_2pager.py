@@ -1,6 +1,6 @@
 """
-BSE Midcap 150 Momentum 30 — AMC-Grade 3-Page Factsheet (v4)
-Fixed-size sections. Zero overlap. BSE Mom30 on growth chart.
+BSE Midcap 150 Momentum 30 — AMC-Grade 3-Page Factsheet (v5)
+Actual daily NAV for BSE Mom30. Blue BSE line. Improved CY contrast.
 """
 import pandas as pd, numpy as np, matplotlib
 matplotlib.use('Agg')
@@ -19,12 +19,14 @@ plt.rcParams.update({
 
 BSE = "/root/.claude/uploads/e98ef6f5-f837-568e-81c7-cae90e5e1a2e/c849403c-BSE_Midcap_150_Momentum_30_Returns__Volatility.cleaned.xlsx"
 NAV = "/root/.claude/uploads/e98ef6f5-f837-568e-81c7-cae90e5e1a2e/950e4d7f-nifty_all_navs.xlsx"
+NAV2 = "/root/.claude/uploads/e98ef6f5-f837-568e-81c7-cae90e5e1a2e/730c2c8c-factor_navs_1.xlsx"
 OUT = "/home/user/trading101"
 FW, FH = 8.27, 11.69  # A4
 
 # ─── DESIGN TOKENS ───
 C = dict(
-    navy='#0A1628', navy2='#152742', gold='#C8982C', gold_lt='#F7F0DD',
+    navy='#0A1628', navy2='#152742', blue='#1565C0', blue_dk='#0D47A1',
+    gold='#C8982C', gold_lt='#F7F0DD',
     teal='#0E7C6B', red='#B83B3B', red_lt='#FCEAEA',
     green='#1B7A42', green_lt='#E3F4EA',
     g1='#F8F9FB', g2='#EEF1F5', g3='#D4D8DE', g4='#9CA3AF',
@@ -46,11 +48,11 @@ IDX_SHORT = {
     'Nifty 50': 'Nifty 50',
 }
 IDX_CLR = {
-    'BSE Midcap 150 Momentum 30': C['navy'],
+    'BSE Midcap 150 Momentum 30': C['blue'],
     'Nifty Midcap150 Momentum 50': C['gold'],
     'Nifty Midcap 150': C['g4'],
     'Nifty200 Mom 30': C['teal'],
-    'Nifty 50': C['g3'],
+    'Nifty 50': C['g5'],
 }
 
 # ═══════════════════════════════════════════════════════════════
@@ -113,6 +115,11 @@ nifty = pd.read_excel(NAV, sheet_name='Broad & Factor Indices')
 nifty['Date'] = pd.to_datetime(nifty['HistoricalDate'], format='mixed', dayfirst=True)
 nifty = nifty.dropna(subset=['Date']).sort_values('Date').set_index('Date')
 
+# --- Factor NAV data (includes BSE Mom30 daily) ---
+fac = pd.read_excel(NAV2)
+fac['Date'] = pd.to_datetime(fac['NAV Date'], format='mixed', dayfirst=True)
+fac = fac.dropna(subset=['Date']).sort_values('Date').set_index('Date')
+
 n50 = nifty['NIFTY 50'].dropna()
 end_date = n50.index[-1]
 
@@ -168,17 +175,21 @@ def calc_risk(r, rf=0.065/252):
     return dict(CAGR=ar,Vol=vol,Sharpe=sh,Sortino=so,MaxDD=mdd,Calmar=cal)
 rmetrics = {nav_map[c]: calc_risk(dret[c]) for c in nav_map}
 
-# ─── RECONSTRUCT BSE Mom30 growth from CY returns ───
-bse_growth_dates = [pd.Timestamp(f'{yr}-12-31') for yr in range(2005, 2026)]
-bse_growth_vals = [10000.0]
+# ─── BSE Mom30 actual daily NAV ───
 bse_k = 'BSE Midcap 150 Momentum 30'
-for yr in range(2006, 2026):
-    ret = cy_data.get(yr, {}).get(bse_k, 0)
-    bse_growth_vals.append(bse_growth_vals[-1] * (1 + ret))
-# Add YTD 2026
+bse_nav = fac['BSE Midcap 150 Momentum 30 Index'].dropna()
+# Extend to current date using YTD 2026 return if NAV file ends earlier
 ytd_ret = perf_data.get('YTD 2026', {}).get(bse_k, 0)
-bse_growth_dates.append(end_date)
-bse_growth_vals.append(bse_growth_vals[-1] * (1 + ytd_ret))
+if bse_nav.index[-1] < end_date:
+    dec25_idx = bse_nav.index[bse_nav.index <= pd.Timestamp('2025-12-31')]
+    if len(dec25_idx) > 0:
+        dec25_val = bse_nav.loc[dec25_idx[-1]]
+        projected = dec25_val * (1 + ytd_ret)
+        bse_nav = pd.concat([bse_nav, pd.Series([projected], index=[end_date])])
+
+# BSE risk metrics from daily returns
+bse_dret = bse_nav.pct_change().dropna()
+rmetrics[bse_k] = calc_risk(bse_dret)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -259,24 +270,29 @@ for i,(v,l) in enumerate(kpis):
 stitle(fig1, 0.04, 0.895, 'Growth of ₹10,000 Invested')
 ax_g = fig1.add_axes([0.06, 0.62, 0.88, 0.265])
 
-# Nifty lines
+# Nifty lines from original NAV file
 grow_map = {
     'NIFTY MIDCAP150 MOMENTUM 50': ('Nifty Mid150 Mom 50', C['gold'], 1.5, '-'),
     'NIFTY200MOMENTM30':           ('Nifty200 Mom 30',     C['teal'], 1.1, '-'),
     'NIFTY MIDCAP 150':            ('Nifty MidCap 150',    C['g4'],   0.8, '--'),
-    'NIFTY 50':                    ('Nifty 50',            C['g3'],   0.8, '--'),
+    'NIFTY 50':                    ('Nifty 50',            C['g5'],   0.8, '--'),
 }
 nav_g = nifty[list(grow_map.keys())].dropna()
+start_date = nav_g.index[0]
 ends = {}
 for col, (lbl, clr, lw, ls) in grow_map.items():
     norm = nav_g[col] / nav_g[col].iloc[0] * 10000
     ax_g.plot(norm.index, norm.values, color=clr, lw=lw, ls=ls, alpha=0.8, zorder=3)
     ends[lbl] = (norm.values[-1], clr)
 
-# BSE Mom30 line (reconstructed from CY returns) — THE STAR
-ax_g.plot(bse_growth_dates, bse_growth_vals, color=C['navy'], lw=2.5, ls='-',
-          alpha=0.95, zorder=5, label='BSE Mid150 Mom 30')
-ends['BSE Mid150 Mom 30'] = (bse_growth_vals[-1], C['navy'])
+# BSE Mom30 line — actual daily NAV data
+bse_start_idx = bse_nav.index[bse_nav.index >= start_date]
+if len(bse_start_idx) > 0:
+    bse_plot = bse_nav.loc[bse_start_idx[0]:]
+    bse_norm = bse_plot / bse_plot.iloc[0] * 10000
+    ax_g.plot(bse_norm.index, bse_norm.values, color=C['blue'], lw=2.5, ls='-',
+              alpha=0.95, zorder=5, label='BSE Mid150 Mom 30')
+    ends['BSE Mid150 Mom 30'] = (bse_norm.values[-1], C['blue'])
 
 ax_g.set_yscale('log')
 y_fmt = lambda x, _: f'₹{x/100000:.1f}L' if x >= 100000 else (f'₹{x/1000:.0f}K' if x >= 1000 else f'₹{x:.0f}')
@@ -352,7 +368,7 @@ for idx, vl, rt in sdata:
     if idx == bse_k:
         ax_sc.annotate(IDX_SHORT[idx], (vl, rt), xytext=(15, 5), textcoords='offset points',
                        fontsize=6.5, fontweight='bold', color=clr,
-                       arrowprops=dict(arrowstyle='->', color=C['gold'], lw=0.8))
+                       arrowprops=dict(arrowstyle='->', color=C['blue'], lw=0.8))
     else:
         y_off = 8 if rt < 22 else -10
         ax_sc.annotate(IDX_SHORT[idx], (vl, rt), xytext=(8, y_off), textcoords='offset points',
@@ -389,10 +405,10 @@ cw_ = 0.82 / nc
 ch_ = 0.78 / nr
 x0, y0 = 0.155, 0.92
 
-norm_cy = mcolors.TwoSlopeNorm(vmin=-0.70, vcenter=0, vmax=1.0)
+norm_cy = mcolors.TwoSlopeNorm(vmin=-0.60, vcenter=0, vmax=1.0)
 cmap_cy = mcolors.LinearSegmentedColormap.from_list('rg', [
-    (0.0, '#C94040'), (0.25, '#F0A8A8'), (0.5, '#FFFFFF'),
-    (0.75, '#8DD4A3'), (1.0, '#1A7840')])
+    (0.0, '#B71C1C'), (0.15, '#E53935'), (0.35, '#FFCDD2'), (0.5, '#F5F5F5'),
+    (0.65, '#A5D6A7'), (0.85, '#2E7D32'), (1.0, '#1B5E20')])
 
 for j, yr in enumerate(years):
     ax_cy.text(x0 + j*cw_ + cw_/2, y0 + 0.035, f"'{str(yr)[2:]}", fontsize=6.5,
@@ -411,7 +427,14 @@ for i in range(nr):
         else: fc, txt = cmap_cy(norm_cy(v)), f'{v*100:.0f}%'
         ax_cy.add_patch(FancyBboxPatch((x+0.001, y+0.006), cw_-0.002, ch_-0.012,
                         boxstyle='round,pad=0.003', fc=fc, ec=C['g2'], lw=0.15, transform=ax_cy.transAxes))
-        tc = C['white'] if (not np.isnan(v) and abs(v) > 0.50) else C['black']
+        if np.isnan(v):
+            tc = C['g5']
+        elif v > 0.35 or v < -0.30:
+            tc = C['white']
+        elif abs(v) < 0.08:
+            tc = C['g6']
+        else:
+            tc = C['white'] if (v > 0.20 or v < -0.15) else C['black']
         fw = 'bold' if i == 0 else 'normal'
         ax_cy.text(x + cw_/2, y + ch_/2, txt, fontsize=6, fontweight=fw, color=tc,
                    ha='center', va='center', transform=ax_cy.transAxes)
@@ -490,7 +513,7 @@ stitle(fig3, 0.04, 0.945, 'Rolling Return Range — Min / Avg / Max')
 ax_rng = fig3.add_axes([0.06, 0.735, 0.88, 0.20])
 
 x = np.arange(len(INDICES)); w = 0.25
-rng_p = [('1YR Rolling Return', C['navy2'], '1 Year'),
+rng_p = [('1YR Rolling Return', C['blue'], '1 Year'),
          ('3YR Rolling Return', C['gold'],  '3 Year'),
          ('5YR Rolling Return', C['teal'],  '5 Year')]
 
@@ -519,13 +542,18 @@ dd_map = {
     'NIFTY MIDCAP150 MOMENTUM 50': ('Nifty Mid150 Mom 50', C['gold'], 1.2),
     'NIFTY MIDCAP 150':            ('Nifty MidCap 150',    C['g4'],   0.7),
     'NIFTY200MOMENTM30':           ('Nifty200 Mom 30',     C['teal'], 0.9),
-    'NIFTY 50':                    ('Nifty 50',            C['g3'],   0.7),
+    'NIFTY 50':                    ('Nifty 50',            C['g5'],   0.7),
 }
+# BSE Mom30 drawdown from actual daily NAV
+bse_cum = (1 + bse_dret).cumprod()
+bse_dd = (bse_cum - bse_cum.cummax()) / bse_cum.cummax() * 100
+ax_dd.fill_between(bse_dd.index, bse_dd.values, 0, alpha=0.15, color=C['blue'])
+ax_dd.plot(bse_dd.index, bse_dd.values, color=C['blue'], lw=1.8, label='BSE Mid150 Mom 30', alpha=0.9, zorder=5)
 for col, (lbl, clr, lw) in dd_map.items():
     cum = (1 + dret[col]).cumprod()
     dd = (cum - cum.cummax()) / cum.cummax() * 100
-    ax_dd.fill_between(dd.index, dd.values, 0, alpha=0.1, color=clr)
-    ax_dd.plot(dd.index, dd.values, color=clr, lw=lw, label=lbl, alpha=0.85)
+    ax_dd.fill_between(dd.index, dd.values, 0, alpha=0.08, color=clr)
+    ax_dd.plot(dd.index, dd.values, color=clr, lw=lw, label=lbl, alpha=0.8)
 
 ax_dd.yaxis.set_major_formatter(mticker.PercentFormatter())
 clean_ax(ax_dd); ax_dd.set_ylabel('Drawdown', fontsize=6.5)
@@ -533,16 +561,16 @@ ax_dd.legend(fontsize=5.5, loc='lower left', edgecolor=C['g3'], framealpha=0.9, 
 
 # ── Risk Metrics Table: y = 0.36 to 0.49 ──
 stitle(fig3, 0.04, 0.50, 'Risk-Adjusted Performance Metrics (Since Apr 2005)')
-ax_risk = fig3.add_axes([0.035, 0.365, 0.93, 0.125])
+ax_risk = fig3.add_axes([0.035, 0.355, 0.93, 0.135])
 
 r_hdr = ['Index','CAGR','Volatility','Sharpe','Sortino','Max Drawdown','Calmar']
-r_order = ['Nifty 50','Nifty Midcap 150','Nifty200 Mom 30','Nifty Midcap150 Momentum 50']
+r_order = ['BSE Midcap 150 Momentum 30','Nifty Midcap150 Momentum 50','Nifty Midcap 150','Nifty200 Mom 30','Nifty 50']
 r_rows = []
 for nm in r_order:
     m = rmetrics.get(nm, {})
     r_rows.append([IDX_SHORT.get(nm, nm), fp(m.get('CAGR')), fp(m.get('Vol')),
                    fr(m.get('Sharpe')), fr(m.get('Sortino')), fp(m.get('MaxDD')), fr(m.get('Calmar'))])
-make_tbl(ax_risk, r_rows, r_hdr, hl_row=4, cw=[0.19]+[0.135]*6, fs=7)
+make_tbl(ax_risk, r_rows, r_hdr, hl_row=1, cw=[0.19]+[0.135]*6, fs=7)
 
 # ── Active Fund Comparison: y = 0.15 to 0.33 ──
 stitle(fig3, 0.04, 0.34, 'BSE Mid150 Mom 30 vs Avg. Active Mid-Cap Fund')
@@ -555,13 +583,13 @@ ar_ = [af.get('Average of the Mid Cap category', {}).get(p, 0) for p in af_p]
 
 x_af = np.arange(len(af_p)); bw = 0.32
 b1 = ax_af.bar(x_af - bw/2, [r*100 for r in ir_], bw, label='BSE Mid150 Mom 30',
-               color=C['navy'], edgecolor=C['white'], lw=0.3, zorder=3)
+               color=C['blue'], edgecolor=C['white'], lw=0.3, zorder=3)
 b2 = ax_af.bar(x_af + bw/2, [r*100 for r in ar_], bw, label='Avg Active Mid-Cap',
                color=C['g4'], edgecolor=C['white'], lw=0.3, zorder=3)
 
 for bar in b1:
     ax_af.text(bar.get_x()+bar.get_width()/2, bar.get_height()+0.4, f'{bar.get_height():.1f}%',
-               ha='center', fontsize=5.5, fontweight='bold', color=C['navy'], zorder=4)
+               ha='center', fontsize=5.5, fontweight='bold', color=C['blue'], zorder=4)
 for bar in b2:
     ax_af.text(bar.get_x()+bar.get_width()/2, bar.get_height()+0.4, f'{bar.get_height():.1f}%',
                ha='center', fontsize=5.5, color=C['g5'], zorder=4)
@@ -597,7 +625,6 @@ ax_d.add_patch(FancyBboxPatch((0,0),1,1, boxstyle='round,pad=0.01',
 disc = ("Disclaimer: This document is for informational purposes only and does not constitute investment advice. "
         "Past performance is not indicative of future results. The BSE Midcap 150 Momentum 30 Index is published by BSE India. "
         "All data is TRI-based. Risk-free rate: 6.5% p.a. Risk metrics from daily NAV since Apr 2005. "
-        "BSE Momentum 30 growth line is reconstructed from calendar year index returns. "
         "Active fund comparison uses Regular Plan Growth NAVs (source: AMFI). "
         "Investors should consult their financial advisor before making investment decisions. "
         "Sources: BSE India, NSE India, AMFI.")
