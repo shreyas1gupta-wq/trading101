@@ -223,26 +223,44 @@ def draw_header(fig, title, sub):
 def stitle(fig, x, y, text, fs=8.5):
     fig.text(x, y, text, fontsize=fs, fontweight='bold', color=C['navy'], va='bottom')
 
-def make_tbl(ax, rows, headers, hl_row=None, cw=None, fs=7.0, rh=1.15):
-    ax.axis('off')
-    nc = len(headers)
+def make_tbl(ax, rows, headers, hl_row=None, cw=None, fs=7.0, rh=1.15, cell_colors=None):
+    """Manual table renderer. matplotlib's ax.table() silently drops the
+    header row under wide/short A4 axes geometry, so we draw cells as
+    Rectangle patches with full control. `cell_colors` optionally maps
+    (data_row_idx, col_idx) -> dict(fc=..., color=..., bold=bool)."""
+    ax.axis('off'); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    nc = len(headers); nr = len(rows) + 1
     if cw is None: cw = [1/nc]*nc
-    t = ax.table(cellText=rows, colLabels=headers, cellLoc='center', loc='center', colWidths=cw)
-    t.auto_set_font_size(False); t.set_fontsize(fs); t.scale(1, rh)
-    for (r, c), cell in t.get_celld().items():
-        cell.set_linewidth(0); cell.PAD = 0.035
-        if r == 0:
-            cell.set_facecolor(C['navy'])
-            cell.set_text_props(color=C['white'], fontweight='bold', fontsize=fs-0.3)
-            cell.visible_edges = 'B'; cell.set_edgecolor(C['gold']); cell.set_linewidth(1.2)
-        else:
-            bg = C['g1'] if r % 2 == 0 else C['white']
-            if hl_row is not None and r == hl_row:
-                bg = C['gold_lt']; cell.set_text_props(fontweight='bold', color=C['navy'])
-            cell.set_facecolor(bg)
-            cell.set_edgecolor(C['g2']); cell.set_linewidth(0.2)
-            if c == 0: cell.set_text_props(fontweight='bold', fontsize=fs-0.4, color=C['g6'])
-    return t
+    xs = [0.0]
+    for w in cw: xs.append(xs[-1] + w)
+    row_h = 1.0 / nr
+    # Header row (navy band, white bold labels)
+    for ci in range(nc):
+        x0, x1 = xs[ci], xs[ci+1]; y0 = 1.0 - row_h
+        ax.add_patch(Rectangle((x0, y0), x1-x0, row_h, fc=C['navy'], ec='none', zorder=1))
+        ax.text((x0+x1)/2, y0 + row_h/2, headers[ci], ha='center', va='center',
+                color=C['white'], fontweight='bold', fontsize=fs-0.2, zorder=3)
+    ax.plot([0, 1], [1.0-row_h, 1.0-row_h], color=C['gold'], lw=1.4, zorder=4)
+    # Data rows
+    for ri, row in enumerate(rows):
+        y1 = 1.0 - row_h*(ri+1); y0 = y1 - row_h
+        is_hl = hl_row is not None and (ri+1) == hl_row
+        base_bg = C['gold_lt'] if is_hl else (C['g1'] if (ri+1) % 2 == 0 else C['white'])
+        for ci in range(nc):
+            x0, x1 = xs[ci], xs[ci+1]
+            cc = cell_colors.get((ri, ci)) if cell_colors else None
+            bg = cc['fc'] if (cc and 'fc' in cc) else base_bg
+            ax.add_patch(Rectangle((x0, y0), x1-x0, row_h, fc=bg, ec=C['g2'], lw=0.2, zorder=1))
+            if ci == 0:
+                ax.text((x0+x1)/2, y0+row_h/2, row[ci], ha='center', va='center',
+                        color=C['navy'] if is_hl else C['g6'], fontweight='bold',
+                        fontsize=fs-0.4, zorder=3)
+            else:
+                tcolor = cc['color'] if (cc and 'color' in cc) else C['navy']
+                tbold = 'bold' if (is_hl or (cc and cc.get('bold'))) else 'normal'
+                ax.text((x0+x1)/2, y0+row_h/2, row[ci], ha='center', va='center',
+                        color=tcolor, fontweight=tbold, fontsize=fs, zorder=3)
+    return None
 
 def clean_ax(ax):
     for s in ['top','right']: ax.spines[s].set_visible(False)
@@ -491,23 +509,23 @@ stitle(fig2, 0.04, 0.255, 'Rolling Returns — Probability of Negative Returns')
 ax_r2 = fig2.add_axes([0.035, 0.11, 0.93, 0.135])
 
 r2_rows = []
-for idx in INDICES:
+r2_colors = {}
+for ri, idx in enumerate(INDICES):
     row = [IDX_SHORT[idx]]
-    for k in rk_:
+    for ci, k in enumerate(rk_):
         rd = rolling.get(k, {}).get(idx)
-        if rd and rd['Tot'] > 0: row.append(fp(rd['Neg']/rd['Tot']))
-        else: row.append('—')
+        if rd and rd['Tot'] > 0:
+            prob = rd['Neg']/rd['Tot']
+            row.append(fp(prob))
+            if prob == 0:
+                r2_colors[(ri, ci+1)] = dict(fc=C['green_lt'], color=C['green'], bold=True)
+            elif prob > 0.20:
+                r2_colors[(ri, ci+1)] = dict(fc=C['red_lt'], color=C['red'])
+        else:
+            row.append('—')
     r2_rows.append(row)
 
-t2 = make_tbl(ax_r2, r2_rows, ['Index']+rl_, hl_row=1, cw=[0.22]+[0.156]*5)
-for (r, c), cell in t2.get_celld().items():
-    if r > 0 and c > 0:
-        txt = cell.get_text().get_text()
-        try:
-            v = float(txt.replace('%',''))
-            if v == 0: cell.set_facecolor(C['green_lt']); cell.set_text_props(color=C['green'], fontweight='bold')
-            elif v > 20: cell.set_facecolor(C['red_lt']); cell.set_text_props(color=C['red'])
-        except: pass
+make_tbl(ax_r2, r2_rows, ['Index']+rl_, hl_row=1, cw=[0.22]+[0.156]*5, cell_colors=r2_colors)
 
 footer(fig2, 2, 3)
 
