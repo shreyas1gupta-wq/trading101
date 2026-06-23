@@ -339,13 +339,6 @@ for lbl, (val, clr) in sorted_e:
                   xytext=(10, 0), textcoords='offset points',
                   fontsize=fz, color=clr, fontweight=fw, va='center')
 
-# Methodology strip: y = 0.605
-fig1.text(0.04, 0.605, 'Methodology:', fontsize=5.5, fontweight='bold', color=C['navy'])
-fig1.text(0.115, 0.605,
-    'Universe: BSE MidCap 150  |  Top 30 by Momentum Score (6M + 12M return / volatility)  |  '
-    'Wt: Score-weighted, max 10%  |  Rebalance: Semi-Annual (Jun & Dec)  |  Base: 03 Apr 2006 = 1,000',
-    fontsize=5, color=C['g5'])
-
 # ── PTP Table: y = 0.44 to 0.58 ──
 stitle(fig1, 0.04, 0.585, 'Point-to-Point Performance (CAGR)')
 ax_ptp = fig1.add_axes([0.035, 0.445, 0.93, 0.132])
