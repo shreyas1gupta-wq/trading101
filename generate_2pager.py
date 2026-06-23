@@ -177,8 +177,22 @@ rmetrics = {nav_map[c]: calc_risk(dret[c]) for c in nav_map}
 
 # ─── BSE Mom30 actual daily NAV ───
 bse_k = 'BSE Midcap 150 Momentum 30'
-bse_nav = fac['BSE Midcap 150 Momentum 30 Index'].dropna()
-# Extend to current date using YTD 2026 return if NAV file ends earlier
+bse_nav_raw = fac['BSE Midcap 150 Momentum 30 Index'].dropna()
+
+# BSE risk metrics from ACTUAL daily returns only (before any extension)
+bse_dret = bse_nav_raw.pct_change().dropna()
+rmetrics[bse_k] = calc_risk(bse_dret)
+
+# Align risk metrics to common date range (BSE start to BSE end)
+common_start = bse_nav_raw.index[0]
+common_end = bse_nav_raw.index[-1]
+for col_old, nm in nav_map.items():
+    sub = dret[col_old].loc[common_start:common_end].dropna()
+    if len(sub) > 50:
+        rmetrics[nm] = calc_risk(sub)
+
+# Extend BSE NAV for growth chart only
+bse_nav = bse_nav_raw.copy()
 ytd_ret = perf_data.get('YTD 2026', {}).get(bse_k, 0)
 if bse_nav.index[-1] < end_date:
     dec25_idx = bse_nav.index[bse_nav.index <= pd.Timestamp('2025-12-31')]
@@ -186,10 +200,6 @@ if bse_nav.index[-1] < end_date:
         dec25_val = bse_nav.loc[dec25_idx[-1]]
         projected = dec25_val * (1 + ytd_ret)
         bse_nav = pd.concat([bse_nav, pd.Series([projected], index=[end_date])])
-
-# BSE risk metrics from daily returns
-bse_dret = bse_nav.pct_change().dropna()
-rmetrics[bse_k] = calc_risk(bse_dret)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -250,15 +260,16 @@ def footer(fig, page, total):
 #  PAGE 1 — Overview & Performance
 # ═══════════════════════════════════════════════════════════════
 fig1 = plt.figure(figsize=(FW, FH), facecolor=C['white'])
-draw_header(fig1, 'BSE Midcap 150 Momentum 30 Index', 'Index Factsheet  |  Data as of June 19, 2026')
+draw_header(fig1, 'BSE Midcap 150 Momentum 30 Index', f'Index Factsheet  |  Data as of {end_date.strftime("%B %d, %Y")}')
 
 # ── KPI Strip: y = 0.905 to 0.945 ──
 ax_kpi = fig1.add_axes([0.035, 0.905, 0.93, 0.042])
 ax_kpi.axis('off'); ax_kpi.set_xlim(0,1); ax_kpi.set_ylim(0,1)
 ax_kpi.add_patch(FancyBboxPatch((0,0),1,1, boxstyle='round,pad=0.008',
                  fc=C['g1'], ec=C['g3'], lw=0.4, transform=ax_kpi.transAxes))
-kpis = [('27.7%','15Y CAGR'),('28.6%','10Y CAGR'),('35.5%','7Y CAGR'),
-        ('30.4%','5Y CAGR'),('33.8%','3Y CAGR'),('13.0%','1Y Return'),('6.2%','YTD 2026')]
+kpi_def = [('15 Years','15Y CAGR'),('10 Years','10Y CAGR'),('7 Years','7Y CAGR'),
+           ('5 Years','5Y CAGR'),('3 Years','3Y CAGR'),('1 Year','1Y Return'),('YTD 2026','YTD 2026')]
+kpis = [(fp(perf_data.get(pk,{}).get(bse_k), 1), lbl) for pk, lbl in kpi_def]
 for i,(v,l) in enumerate(kpis):
     x = 0.01 + i * 0.14
     ax_kpi.text(x+0.07, 0.68, v, fontsize=11, fontweight='bold', color=C['navy'], ha='center', va='center')
@@ -270,35 +281,34 @@ for i,(v,l) in enumerate(kpis):
 stitle(fig1, 0.04, 0.895, 'Growth of ₹10,000 Invested')
 ax_g = fig1.add_axes([0.06, 0.62, 0.88, 0.265])
 
-# Nifty lines from original NAV file
+# Use BSE start date as common start for apples-to-apples comparison
 grow_map = {
     'NIFTY MIDCAP150 MOMENTUM 50': ('Nifty Mid150 Mom 50', C['gold'], 1.5, '-'),
     'NIFTY200MOMENTM30':           ('Nifty200 Mom 30',     C['teal'], 1.1, '-'),
     'NIFTY MIDCAP 150':            ('Nifty MidCap 150',    C['g4'],   0.8, '--'),
     'NIFTY 50':                    ('Nifty 50',            C['g5'],   0.8, '--'),
 }
-nav_g = nifty[list(grow_map.keys())].dropna()
-start_date = nav_g.index[0]
+chart_start = bse_nav_raw.index[0]  # Jun 20, 2005 — common start
+nav_g = nifty[list(grow_map.keys())].loc[chart_start:].dropna()
 ends = {}
 for col, (lbl, clr, lw, ls) in grow_map.items():
-    norm = nav_g[col] / nav_g[col].iloc[0] * 10000
+    series = nav_g[col]
+    norm = series / series.iloc[0] * 10000
     ax_g.plot(norm.index, norm.values, color=clr, lw=lw, ls=ls, alpha=0.8, zorder=3)
     ends[lbl] = (norm.values[-1], clr)
 
-# BSE Mom30 line — actual daily NAV data
-bse_start_idx = bse_nav.index[bse_nav.index >= start_date]
-if len(bse_start_idx) > 0:
-    bse_plot = bse_nav.loc[bse_start_idx[0]:]
-    bse_norm = bse_plot / bse_plot.iloc[0] * 10000
-    ax_g.plot(bse_norm.index, bse_norm.values, color=C['blue'], lw=2.5, ls='-',
-              alpha=0.95, zorder=5, label='BSE Mid150 Mom 30')
-    ends['BSE Mid150 Mom 30'] = (bse_norm.values[-1], C['blue'])
+# BSE Mom30 line — actual daily NAV data (normalized from same start date)
+bse_plot = bse_nav.loc[chart_start:]
+bse_norm = bse_plot / bse_plot.iloc[0] * 10000
+ax_g.plot(bse_norm.index, bse_norm.values, color=C['blue'], lw=2.5, ls='-',
+          alpha=0.95, zorder=5, label='BSE Mid150 Mom 30')
+ends['BSE Mid150 Mom 30'] = (bse_norm.values[-1], C['blue'])
 
 ax_g.set_yscale('log')
 y_fmt = lambda x, _: f'₹{x/100000:.1f}L' if x >= 100000 else (f'₹{x/1000:.0f}K' if x >= 1000 else f'₹{x:.0f}')
 ax_g.yaxis.set_major_formatter(mticker.FuncFormatter(y_fmt))
 clean_ax(ax_g); ax_g.grid(axis='y', color=C['g2'], lw=0.25, alpha=0.5)
-ax_g.set_xlim(pd.Timestamp('2005-04-01'), end_date + pd.Timedelta(days=900))
+ax_g.set_xlim(chart_start - pd.Timedelta(days=30), end_date + pd.Timedelta(days=900))
 
 # End-of-line labels sorted top-to-bottom with spacing
 sorted_e = sorted(ends.items(), key=lambda x: -x[1][0])
@@ -544,7 +554,7 @@ dd_map = {
     'NIFTY200MOMENTM30':           ('Nifty200 Mom 30',     C['teal'], 0.9),
     'NIFTY 50':                    ('Nifty 50',            C['g5'],   0.7),
 }
-# BSE Mom30 drawdown from actual daily NAV
+# BSE Mom30 drawdown from actual daily NAV (raw, no extension)
 bse_cum = (1 + bse_dret).cumprod()
 bse_dd = (bse_cum - bse_cum.cummax()) / bse_cum.cummax() * 100
 ax_dd.fill_between(bse_dd.index, bse_dd.values, 0, alpha=0.15, color=C['blue'])
@@ -560,7 +570,7 @@ clean_ax(ax_dd); ax_dd.set_ylabel('Drawdown', fontsize=6.5)
 ax_dd.legend(fontsize=5.5, loc='lower left', edgecolor=C['g3'], framealpha=0.9, ncol=2, handlelength=1.2)
 
 # ── Risk Metrics Table: y = 0.36 to 0.49 ──
-stitle(fig3, 0.04, 0.50, 'Risk-Adjusted Performance Metrics (Since Apr 2005)')
+stitle(fig3, 0.04, 0.50, 'Risk-Adjusted Performance Metrics (Since Jun 2005)')
 ax_risk = fig3.add_axes([0.035, 0.355, 0.93, 0.135])
 
 r_hdr = ['Index','CAGR','Volatility','Sharpe','Sortino','Max Drawdown','Calmar']
