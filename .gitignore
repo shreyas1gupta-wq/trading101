@@ -6,3 +6,11 @@ equity_curves.png
 __pycache__/
 walkforward_returns.csv
 walkforward_equity.png
+
+# price cache (yfinance/EODHD per-ticker CSVs) — regenerable, can be large
+cache/
+
+# secrets — API keys must NEVER be committed (EODHD key comes from $EODHD_API_KEY)
+.env
+*.key
+secrets.*

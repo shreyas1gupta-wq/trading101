@@ -1,72 +1,66 @@
-# Sourcing price data (the one remaining blocker)
+# Price data — the free-data waterfall
 
-Your **constituent lists** make index membership survivorship-bias-free. The
-**price data** must match: include the **delisted** names (the ~233 Nifty-200
-tickers that left the index — many because they collapsed) and be
-**split/bonus-adjusted**. Survivor-only or unadjusted prices make a backtest look
-better than reality even with a clean membership list.
+The universe (`universe.py`) is survivorship-bias-free: it lists every name that was
+**ever** a member (NIFTY200: 435 ever / ~202 live; NIFTY500: 1004 ever / ~501 live).
+Prices must cover the delisted names too, or the backtest is biased on the price side.
+No single *free* source has them all, so `data_sources.py` cascades **per ticker** and
+takes the first source that covers it (per-ticker selection — never splicing adjusted
+and raw quotes inside one series):
 
-`kaggle_pipeline.coverage_report()` checks coverage automatically and warns when
-matched tickers < 90% of the universe.
+1. **yfinance** — free, unlimited, split/dividend **adjusted**. Covers survivors. Yahoo
+   usually drops delisted Indian names, so they fall through to step 2.
+2. **local** — your Kaggle EOD dump(s) **+ the bundled delisted price panel**
+   (`data/NIFTY500_delisted_prices_2005_2025.xlsx`). This is where the dead names live.
+3. **EODHD** — adjusted, but the free tier is **~20 calls/day**, so it runs **last** and
+   only for names *still* missing, capped by `max_calls`, and every fetch is cached to
+   disk so repeated runs accumulate coverage without re-spending the daily budget.
 
-## What a scan of available data actually shows
-- **Free NSE data is unadjusted.** Confirmed across sources — NSE historical
-  prices are *not* adjusted for splits/bonuses; you adjust them yourself or buy
-  adjusted data.
-- **Free + delisted-inclusive** exists only via **bhavcopy** (each day's report
-  lists every stock that traded, so dead names appear historically), or large
-  multi-thousand-ticker dumps that happen to retain delisted names.
-- **Turnkey bias-free + adjusted = paid** (EODHD, QuantRocket, TickData).
+Configure it in `CONFIG["sources"]` (kaggle_pipeline.py). The default is already
+yfinance → bundled delisted panel → EODHD.
 
-## Pick your tier
+## What's bundled in `data/`
+| File | What it is | Used by |
+|---|---|---|
+| `NIFTY200_constituents_2005_2025.xlsx` | Nifty200 membership (Month-Year × Ticker, 42 snapshots) | `universe.py` |
+| `NIFTY500_constituents_2005_2025.xlsx` | Nifty500 membership | `universe.py` |
+| `NIFTY500_delisted_prices_2005_2025.xlsx` | **Daily price panel for 148 delisted names** (2005→2021, wide Date × ticker) | `local` source |
+| `factor_navs_2005_2025.xlsx` | Daily NAV series (NIFTY 50/100/500, Midcap150, GOLDBEES…) | benchmark comparison |
+| `nifty50_next50_composition.xlsx` | Monthly Nifty50/Next50 membership (2008→) | supplementary (not wired in) |
 
-| Tier | Source | Bias-free? | Adjusted? | Effort / cost |
-|---|---|---|---|---|
-| **A — Turnkey (recommended if you'll spend a little)** | [EODHD](https://eodhd.com/) NSE EOD (markets itself survivorship-bias-free incl. delisted) or [QuantRocket](https://www.quantrocket.com/data/) | ✅ | ✅ | ~$20–60/mo; lowest effort, correct data |
-| **B — Free + correct (DIY)** | NSE **bhavcopy** via [`jugaad-data`](https://github.com/jugaad-py/jugaad-data) on Kaggle, 2005–2025 | ✅ (bhavcopy = every stock trading that day) | ❌ you adjust | free; you build + adjust the panel |
-| **C — Free + quick (biased)** | [stoicstatic 1990–2021](https://www.kaggle.com/datasets/stoicstatic/india-stock-data-nse-1990-2020) (1700+ tickers → likely many delisted) or survivor-only adjusted dumps | partial | varies | free; machinery sanity-check only, ends 2021 |
+## Your EODHD key — keep it out of the repo
+The key is read **only** from the `EODHD_API_KEY` environment variable, never hard-coded.
+- **Kaggle:** Add-ons → Secrets → add `EODHD_API_KEY`; then in the notebook
+  `os.environ["EODHD_API_KEY"] = UserSecretsClient().get_secret("EODHD_API_KEY")`.
+- **Local:** `export EODHD_API_KEY=...`
+- `.gitignore` blocks `.env`/`*.key`/`secrets.*`, and `cache/` (the per-ticker price cache).
+- The free tier is ~20 calls/day and is **US-focused** — NSE/India coverage on free is
+  limited, so treat EODHD as a gap-filler for a handful of still-missing names, not a bulk
+  source. (If you upgrade, it just works — same code path.)
 
-Survivor-only adjusted dumps for a fast first run:
-[bhaktij](https://www.kaggle.com/datasets/bhaktij/nse-stock-market-historical-data),
-[andrewmvd](https://www.kaggle.com/datasets/andrewmvd/india-stock-market),
-[tilak123](https://www.kaggle.com/datasets/tilak123/nse-india-stock-prices),
-[akshaypawar7/nse-daily-bhavcopy](https://www.kaggle.com/datasets/akshaypawar7/nse-daily-bhavcopy) (pre-collected bhavcopy — skips the download step in Tier B).
-
-## Free bias-free route (Tier B): build the panel from bhavcopy on Kaggle
+## Adding your saved Kaggle EOD dump
+Add it as an Input on Kaggle, then add a line to `CONFIG["sources"]` (order = priority):
 ```python
-# Kaggle cell, internet ON. Produces the delisted-inclusive long CSV the loader reads.
-!pip -q install jugaad-data
-from jugaad_data.nse import bhavcopy_save
-from datetime import date, timedelta
-import glob, os, pandas as pd
-
-os.makedirs("bhav", exist_ok=True)
-d, end = date(2005, 1, 1), date(2025, 9, 30)
-while d <= end:
-    try: bhavcopy_save(d, "bhav")        # raises on weekends/holidays -> skip
-    except Exception: pass
-    d += timedelta(days=1)               # NB: ~5000 files; throttle / resume if NSE rate-limits
-
-df = pd.concat(pd.read_csv(f) for f in glob.glob("bhav/*.csv"))
-df = df[df["SERIES"] == "EQ"][["SYMBOL","SERIES","OPEN","HIGH","LOW","CLOSE","TOTTRDQTY","TIMESTAMP"]]
-df.to_csv("nse_bhavcopy_2005_2025.csv", index=False)   # -> CONFIG["price_path"] = ".../nse_bhavcopy_2005_2025.csv"
+{"type": "local", "path": "/kaggle/input/<your-nse-eod>"},   # dir of <SYMBOL>.csv, a long bhavcopy CSV, or a wide Date×ticker panel
 ```
-(To skip the slow download, attach the pre-collected `akshaypawar7/nse-daily-bhavcopy` dataset and `pd.concat` its CSVs instead.)
+`local` auto-detects three layouts: per-ticker dir, long CSV (`Date,Symbol,…` incl. NSE
+bhavcopy), and wide panel (`Date` + one close column per ticker). Close-only is fine —
+missing O/H/L are filled from close and volume left blank.
 
-Then **adjust for splits/bonuses** — otherwise mean-reversion signals misread
-ex-dates as crashes. Pull corporate actions from
-[NSE corporate actions](https://www.nseindia.com/companies-listing/corporate-filings-actions),
-build a cumulative factor per symbol, divide pre-event OHLC by it, and write the
-result as an **`Adj Close`** column — the loader auto-detects it and back-adjusts OHLC.
+## Data hygiene (automatic)
+- **Despike:** free EOD panels carry isolated bad ticks (e.g. `6649 → 46 → 6649`, or a
+  `132 → 6000 → 129` spike). A long backtest that compounds the +144× "recovery" off such
+  a tick reports fantasy CAGRs. The loader nulls any day deviating **>3× or <⅓** from its
+  local median (far beyond NSE's ~±20% circuit bands → unambiguously a data error) and
+  bridges the gap with a short ffill. Real multi-day declines are preserved. The run logs
+  how many ticks were removed.
+- **Close-only / no volume:** the liquidity filter can't assess a name with no volume, so
+  it **doesn't exclude** it (unknown ≠ illiquid); the capacity report then degrades to a
+  clear "not assessed" note instead of printing nonsense. Add a volume-bearing source to
+  re-enable capacity analysis.
 
-## Wiring it in
-- Per-ticker CSVs in a folder → `CONFIG["price_path"] = "<folder>"`.
-- One long CSV (bhavcopy) → `CONFIG["price_path"] = "<file>.csv"`.
-- The loader auto-handles bhavcopy/Yahoo column names and the `SERIES==EQ` filter.
-- Run `kaggle_pipeline.py`, read the **coverage report** (aim > 90%), then trust
-  the **walk-forward** numbers.
-
-## Bottom line
-- Correct with least effort → **EODHD / QuantRocket (Tier A)**.
-- Free and correct → **bhavcopy + adjustment (Tier B)**; I can write the adjustment step next.
-- Just see the machine run → **Tier C**, knowing it's optimistic (coverage report will warn).
+## Reading the output
+`kaggle_pipeline.py` prints, per source, how many tickers it contributed and the final
+**coverage** vs the universe (aim > 90%). Trust the **rolling walk-forward** numbers and
+compare them to the **buy-&-hold NIFTY benchmark** — beating the index *after costs* is the
+real test. Synthetic prices are used only when no sources are configured (offline plumbing
+check).

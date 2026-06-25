@@ -6,29 +6,31 @@ Runs the whole pipeline in one place, designed to execute on a Kaggle notebook
 immediately on SYNTHETIC prices so you can validate the plumbing, then switches
 to REAL data the moment you point CONFIG at a price dataset.
 
+PRICE DATA — a free-data WATERFALL (see data_sources.py)
+--------------------------------------------------------
+The hard part is sourcing prices for the DELISTED names (the ~233 Nifty-200 / ~503
+Nifty-500 tickers that left the index, many because they blew up) without which the
+backtest is survivorship-biased on the price side. No single free source has them
+all, so CONFIG["sources"] cascades per ticker and takes the first that covers it:
+
+  1. yfinance  -- free/unlimited, split+dividend ADJUSTED -> survivors
+  2. local     -- the bundled delisted price panel + any Kaggle EOD dump you add
+  3. EODHD     -- adjusted, but free tier ~20 calls/day -> last resort, capped, cached
+                  (key read ONLY from the $EODHD_API_KEY env var / Kaggle Secret)
+
+It still runs immediately on SYNTHETIC prices (no sources -> synthetic) so the
+plumbing is verifiable offline. The coverage report prints how many constituents
+matched and from which source; aim for >90%.
+
 HOW TO RUN ON KAGGLE
 --------------------
-1. New Notebook. Add data:
-     • this repo's files (universe.py, portfolio.py, strategies.py, swing_backtest.py,
-       data/NIFTY200_constituents_2005_2025.xlsx)  -> upload as a Dataset or Utility Script
-     • a price dataset (see DATA CONTRACT below) -> Add Input
-2. Set CONFIG["price_path"] to the price dataset path under /kaggle/input/...
-3. Run.  -> prints per-strategy + combined metrics (in-sample AND out-of-sample),
-            saves equity curves, weights, and an equity-curve PNG.
-
-DATA CONTRACT (what the price dataset must provide)
----------------------------------------------------
-ADJUSTED (split/bonus) daily OHLCV, 2005-2025, for NSE symbols matching the
-constituent tickers. Two accepted layouts (auto-detected):
-  (a) one CSV per ticker:  <SYMBOL>.csv  with Date,Open,High,Low,Close,Volume
-      (and optionally 'Adj Close' / 'Adjusted' — used in preference to Close)
-  (b) one long CSV:        Date,Symbol,Open,High,Low,Close,Volume[,Adj Close]
-
-CRITICAL: the dataset must include DELISTED names (the ~233 Nifty-200 tickers that
-left the index, many of which blew up). The coverage report below tells you how
-many constituents matched — if it's far below the universe size, your prices are
-survivor-only and results will be optimistically biased even though membership is
-point-in-time. (Aim for >90% coverage.)
+1. New Notebook (internet ON). Add this repo (incl. data/) as a Dataset/Utility Script,
+   and optionally your saved NSE EOD dump as another Input.
+2. Point an extra {"type":"local","path":"/kaggle/input/<your-eod>"} entry in
+   CONFIG["sources"] at that dump; add your EODHD key as a Kaggle Secret named
+   EODHD_API_KEY. (Defaults already use yfinance + the bundled delisted panel.)
+3. Run -> per-strategy + combined metrics (in-sample AND out-of-sample), capacity,
+   walk-forward, benchmark vs NIFTY index, and saved curves/weights.
 """
 
 import os
@@ -38,13 +40,22 @@ import pandas as pd
 
 import portfolio
 import strategies as S
+import data_sources as DS
 from universe import IndexUniverse, NIFTY200, NIFTY500
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
 CONFIG = {
     "index":       "NIFTY200",          # or "NIFTY500"
     "constituents": NIFTY200,           # path to the constituent xlsx
-    "price_path":  None,                # e.g. "/kaggle/input/nse-eod/prices"  (dir or .csv); None -> synthetic
+    "price_path":  None,                # back-compat: a single local dir/CSV (added as a 'local' source)
+    "sources": [                        # the free-data WATERFALL — first source that has a ticker wins
+        {"type": "yfinance", "suffix": ".NS"},                                      # survivors, adjusted, unlimited
+        {"type": "local", "path": "data/NIFTY500_delisted_prices_2005_2025.xlsx"},  # bundled delisted panel
+        # {"type": "local", "path": "/kaggle/input/<your-nse-eod>"},                # <- add your saved Kaggle EOD here
+        {"type": "eodhd", "exchange": "NSE", "max_calls": 20},                      # last resort; key from $EODHD_API_KEY
+    ],
+    "cache_dir":   "cache",             # per-ticker CSV cache (yfinance/EODHD) so re-runs don't re-fetch
+    "benchmarks":  "data/factor_navs_2005_2025.xlsx",   # index NAV series for a buy&hold comparison (optional)
     "start":       "2006-01-01",
     "end":         "2024-12-31",
     "min_sharpe":  0.5,                 # selection bar (applied on the TRAIN window only)
@@ -59,85 +70,25 @@ CONFIG = {
 }
 
 
-# ── real price loaders (adaptable; synthetic fallback) ─────────────────────────
-def _norm(sym):
-    return str(sym).strip().upper().replace(".NS", "").replace(".BO", "")
-
-
-# canonical column <- accepted aliases (covers NSE bhavcopy and Yahoo-style exports)
-_ALIASES = {
-    "Date":     {"date", "timestamp", "tradedate", "trade_date", "dt", "time"},
-    "Open":     {"open", "open price", "openprice"},
-    "High":     {"high", "high price"},
-    "Low":      {"low", "low price"},
-    "Close":    {"close", "close price", "closeprice"},  # NOT 'last'/'ltp' (distinct fields)
-    "AdjClose": {"adj close", "adjusted", "adj_close", "adjclose", "adjusted close"},
-    "Volume":   {"volume", "tottrdqty", "total traded quantity", "totaltradedquantity", "qty", "vol"},
-    "Symbol":   {"symbol", "ticker", "name", "scrip", "scripname"},
-    "Series":   {"series"},
-}
-
-
-def _canon(df):
-    """Rename columns to canonical names and keep cash-equity rows (SERIES==EQ) if present."""
-    df = df.copy()
-    ren = {}
-    for c in df.columns:
-        lc = str(c).strip().lower()
-        for canon, al in _ALIASES.items():
-            if lc in al:
-                ren[c] = canon
-    df = df.rename(columns=ren)
-    df = df.loc[:, ~df.columns.duplicated()]             # guard against alias collisions
-    if "Series" in df.columns:                          # bhavcopy carries EQ/BE/SM... keep EQ
-        df = df[df["Series"].astype(str).str.strip() == "EQ"]
-    return df
-
-
-def load_prices(price_path, tickers, dates):
-    """Return (Prices, source_str). Falls back to synthetic if price_path is None/empty.
-    Auto-handles bhavcopy (long, SYMBOL/SERIES/TOTTRDQTY) and Yahoo-style (Adj Close) layouts."""
-    if not price_path or not os.path.exists(price_path):
+# ── price loading: delegate to the data_sources waterfall (synthetic fallback) ──
+def load_prices(cfg, tickers, dates):
+    """Build the price panel via data_sources.build_panel (yfinance -> local -> EODHD).
+    Returns (Prices, source_str, provenance, notes). Falls back to SYNTHETIC when no
+    sources are configured or the cascade resolves nothing, so the plumbing still
+    runs end-to-end offline."""
+    sources = cfg.get("sources")
+    if not sources and cfg.get("price_path"):                 # back-compat single path
+        sources = [{"type": "local", "path": cfg["price_path"]}]
+    if not sources:
         px, src = S.make_synthetic_ohlcv(tickers, dates)
-        return px, src + "  [no price_path -> SYNTHETIC]"
+        return px, src + "  [no sources configured -> SYNTHETIC]", {}, []
 
-    frames = {f: {} for f in ("open", "high", "low", "close", "volume")}
-    want = set(tickers)
-
-    def _ingest(sym, df):
-        sym = _norm(sym)
-        if sym not in want:
-            return
-        df = _canon(df)
-        if "Date" not in df.columns or "Close" not in df.columns:
-            return
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        df = df.dropna(subset=["Date"]).set_index("Date").sort_index()
-        df = df[~df.index.duplicated(keep="last")]       # drop accidental dup rows
-        close = df["AdjClose"] if "AdjClose" in df.columns else df["Close"]
-        scale = (close / df["Close"]).replace([np.inf, -np.inf], np.nan).fillna(1.0)  # back-adjust OHLC
-        frames["open"][sym]   = df.get("Open", close) * scale
-        frames["high"][sym]   = df.get("High", close) * scale
-        frames["low"][sym]    = df.get("Low", close) * scale
-        frames["close"][sym]  = close
-        frames["volume"][sym] = df.get("Volume", pd.Series(np.nan, index=df.index))
-
-    if os.path.isdir(price_path):                       # layout (a): one CSV per ticker
-        for fp in glob.glob(os.path.join(price_path, "*.csv")):
-            _ingest(os.path.splitext(os.path.basename(fp))[0], pd.read_csv(fp))
-    else:                                               # layout (b): one long CSV (e.g. bhavcopy)
-        big = _canon(pd.read_csv(price_path))
-        if "Symbol" not in big.columns:
-            raise ValueError("long CSV needs a Symbol/Ticker column (or use a per-ticker dir)")
-        for sym, df in big.groupby("Symbol"):
-            _ingest(sym, df)
-
-    idx = pd.bdate_range(dates.min(), dates.max())
-    def panel(d):
-        return pd.DataFrame(d).reindex(idx).sort_index().ffill(limit=5)
-    px = S.Prices(panel(frames["open"]), panel(frames["high"]), panel(frames["low"]),
-                  panel(frames["close"]), panel(frames["volume"]))
-    return px, f"REAL prices from {price_path}"
+    px, prov, notes = DS.build_panel({**cfg, "sources": sources}, tickers, dates)
+    if px.close.shape[1] == 0 or not px.close.notna().any().any():
+        px, src = S.make_synthetic_ohlcv(tickers, dates)
+        return px, src + "  [sources resolved 0 tickers -> SYNTHETIC]", prov, notes
+    want = [DS._norm(t) for t in tickers]
+    return px, "REAL prices (" + DS.provenance_summary(prov, want) + ")", prov, notes
 
 
 def adv_crore(px, n=20):
@@ -147,8 +98,15 @@ def adv_crore(px, n=20):
 
 def liquidity_mask(px, min_adv_cr):
     """Tradable only where 20d ADV >= floor. Filtering out illiquids is more honest
-    than modelling huge slippage on names you could never fill at swing size."""
-    return adv_crore(px) >= min_adv_cr
+    than modelling huge slippage on names you could never fill at swing size.
+    Names with NO volume data at all (close-only sources, e.g. the delisted panel)
+    can't be assessed -> we DON'T exclude them on liquidity (unknown != illiquid);
+    their capacity simply isn't modelled."""
+    mask = adv_crore(px) >= min_adv_cr
+    novol = px.volume.columns[~px.volume.notna().any()]
+    if len(novol):
+        mask[novol] = True
+    return mask
 
 
 def net_book_weights(px, ctx, strat_alloc):
@@ -167,6 +125,10 @@ def capacity_report(px, book, cfg):
     position exceed `max_participation` of that name's ADV, and what's the max book
     size before the most-binding position breaches the cap?"""
     adv = adv_crore(px).reindex(columns=book.columns)
+    if adv.notna().sum().sum() == 0:                          # close-only source: no volume to assess
+        print("\n=== Capacity ===  volume unavailable for held names -> not assessed "
+              "(close-only price source; add a volume-bearing source to enable).")
+        return
     held = book > 1e-6
     pos_value = book * cfg["aum_cr"]                          # ₹cr per name per day
     breaches = (pos_value > cfg["max_participation"] * adv) & held
@@ -248,8 +210,10 @@ def main(cfg=CONFIG):
     tickers = uni.all_tickers()
     dates = pd.bdate_range(cfg["start"], cfg["end"])
 
-    px, src = load_prices(cfg["price_path"], tickers, dates)
+    px, src, prov, notes = load_prices(cfg, tickers, dates)
     print(f"Prices: {src}  shape={px.close.shape}")
+    for n in notes:
+        print(f"   {n}")
     matched = coverage_report(px, uni)
 
     uni_mask = uni.daily_mask(px.close.index, tickers)
@@ -302,9 +266,36 @@ def main(cfg=CONFIG):
     else:
         print(f"Not enough history for a {cfg['wf_train']}+{cfg['wf_test']}-day walk-forward.")
 
+    benchmark_report(cfg, px.close.index, wf_series if wf_tab is not None else None)
+
     _plot(R, keep, cfg, wf_series if wf_tab is not None else None)
     print("\nDone. Outputs: per_strategy_metrics.csv, final_weights.csv, "
           "walkforward_returns.csv, equity_curves.png, walkforward_equity.png")
+
+
+def benchmark_report(cfg, dates, wf_series=None):
+    """Compare the strategy's walk-forward (equal-weight) return to simply buying and
+    holding the index — the bar any active strategy has to clear after costs."""
+    bm = DS.load_benchmarks(cfg.get("benchmarks"))
+    if bm is None or bm.empty:
+        return
+    dates = pd.DatetimeIndex(dates)
+    bm = bm.reindex(bm.index.union(dates)).ffill().reindex(dates).dropna(how="all")
+    if len(bm) < 2:
+        return
+    yrs = max((bm.index[-1] - bm.index[0]).days / 365.25, 1e-9)
+    print("\n=== Benchmark: buy & hold the index (same window) ===")
+    for col in bm.columns:
+        s = bm[col].dropna()
+        if len(s) < 2:
+            continue
+        cagr = (s.iloc[-1] / s.iloc[0]) ** (1 / yrs) - 1
+        print(f"  {col:12s} CAGR {cagr:6.1%}   (total {s.iloc[-1]/s.iloc[0]-1:6.0%})")
+    if wf_series is not None and "equal" in wf_series:
+        eq = (1 + wf_series["equal"]).cumprod()
+        wf_cagr = eq.iloc[-1] ** (252 / len(eq)) - 1
+        print(f"  -> strategy walk-forward (equal): CAGR {wf_cagr:.1%}. "
+              f"Beating buy&hold AFTER costs is the real test.")
 
 
 def _plot(R, keep, cfg, wf_series=None):
