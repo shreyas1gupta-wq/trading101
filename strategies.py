@@ -443,11 +443,16 @@ for _n, _f, _why in [
 # ══════════════════════════════════════════════════════════════════════════════
 #  Run all strategies -> returns matrix (feed to portfolio.combine)
 # ══════════════════════════════════════════════════════════════════════════════
-def run_all(px, ctx, verbose=True, cost_bps=COST_PER_SIDE_BPS):
+def run_all(px, ctx, verbose=True, cost_bps=COST_PER_SIDE_BPS, masks_by_family=None):
+    """masks_by_family: optional {family -> membership mask} to run a family on a
+    different universe (e.g. mean-reversion on the more-liquid Nifty200 while the
+    rest trade the full Nifty500). Families not listed use ctx['membership']."""
     rows, R = {}, {}
     for name, (family, fn) in REGISTRY.items():
+        ctx_i = ({**ctx, "membership": masks_by_family[family]}
+                 if masks_by_family and family in masks_by_family else ctx)
         try:
-            w = fn(px, ctx)
+            w = fn(px, ctx_i)
             res = run_backtest(px.close, w, cost_bps)
             if res["exposure"].abs().sum() < 1e-9:
                 if verbose: print(f"  skip {name:28s} (no trades)")

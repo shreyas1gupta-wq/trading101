@@ -6,6 +6,11 @@ Runs the whole pipeline in one place, designed to execute on a Kaggle notebook
 immediately on SYNTHETIC prices so you can validate the plumbing, then switches
 to REAL data the moment you point CONFIG at a price dataset.
 
+UNIVERSE: the main test universe is Nifty500; the mean-reversion family is restricted
+to the more-liquid Nifty200 (mean-reversion in illiquid small-caps isn't tradable).
+Configurable via CONFIG["mr_constituents"]/["mr_families"]; prices are fetched for the
+union of both universes.
+
 PRICE DATA — a free-data WATERFALL (see data_sources.py)
 --------------------------------------------------------
 The hard part is sourcing prices for the DELISTED names (the ~233 Nifty-200 / ~503
@@ -45,8 +50,11 @@ from universe import IndexUniverse, NIFTY200, NIFTY500
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
 CONFIG = {
-    "index":       "NIFTY200",          # or "NIFTY500"
-    "constituents": NIFTY200,           # path to the constituent xlsx
+    "index":       "NIFTY500",          # MAIN test universe (broad)
+    "constituents": NIFTY500,           # path to the constituent xlsx
+    "mr_index":    "NIFTY200",          # mean-reversion runs on the more LIQUID Nifty200
+    "mr_constituents": NIFTY200,        #   (falling-knife reversion in illiquid small-caps is untradeable)
+    "mr_families": ["mean-reversion"],  # strategy families restricted to the MR universe
     "price_path":  None,                # back-compat: a single local dir/CSV (added as a 'local' source)
     "sources": [                        # the free-data WATERFALL — first source that has a ticker wins
         {"type": "yfinance", "suffix": ".NS"},                                      # survivors, adjusted, unlimited
@@ -109,13 +117,17 @@ def liquidity_mask(px, min_adv_cr):
     return mask
 
 
-def net_book_weights(px, ctx, strat_alloc):
+def net_book_weights(px, ctx, strat_alloc, masks_by_family=None):
     """Net STOCK-level book = Σ_strategy (allocation × that strategy's stock weights).
     portfolio.combine() gives weights ACROSS strategies; this turns them back into
-    actual per-name positions over time, which is what capacity is about."""
+    actual per-name positions over time, which is what capacity is about. Uses the
+    same per-family universe override as run_all so the book matches what was traded."""
     net = None
     for name, a in strat_alloc.items():
-        w = S.REGISTRY[name][1](px, ctx) * a
+        family, fn = S.REGISTRY[name]
+        ctx_i = ({**ctx, "membership": masks_by_family[family]}
+                 if masks_by_family and family in masks_by_family else ctx)
+        w = fn(px, ctx_i) * a
         net = w if net is None else net.add(w, fill_value=0.0)
     return net.fillna(0.0)
 
@@ -205,9 +217,18 @@ def walk_forward_combine(R, train=756, test=126, min_sharpe=0.5):
 
 # ── main ────────────────────────────────────────────────────────────────────────
 def main(cfg=CONFIG):
-    uni = IndexUniverse(cfg["constituents"])
+    uni = IndexUniverse(cfg["constituents"])              # main test universe (Nifty500)
     print(uni.summary())
-    tickers = uni.all_tickers()
+    tickers = set(uni.all_tickers())
+
+    # Mean-reversion runs on the more-liquid Nifty200 subset (catching falling knives in
+    # illiquid small-caps isn't tradable); every other family uses the full Nifty500.
+    uni_mr = None
+    if cfg.get("mr_constituents") and cfg.get("mr_families"):
+        uni_mr = IndexUniverse(cfg["mr_constituents"])
+        print("MR universe:", uni_mr.summary())
+        tickers |= set(uni_mr.all_tickers())              # fetch prices for the UNION of both
+    tickers = sorted(tickers)
     dates = pd.bdate_range(cfg["start"], cfg["end"])
 
     px, src, prov, notes = load_prices(cfg, tickers, dates)
@@ -216,16 +237,23 @@ def main(cfg=CONFIG):
         print(f"   {n}")
     matched = coverage_report(px, uni)
 
+    liq = liquidity_mask(px, cfg["min_adv_cr"])
     uni_mask = uni.daily_mask(px.close.index, tickers)
-    membership = uni_mask & liquidity_mask(px, cfg["min_adv_cr"]).reindex_like(uni_mask).fillna(False)
+    membership = uni_mask & liq.reindex_like(uni_mask).fillna(False)
     kept = membership.sum().sum() / max(1, uni_mask.sum().sum())
     print(f"Liquidity filter (20d ADV >= ₹{cfg['min_adv_cr']:.0f}cr): "
           f"{100*kept:.0f}% of member-days remain tradable")
     ctx = {"membership": membership, "universe": uni}
 
-    print(f"\n=== Backtesting {len(S.REGISTRY)} strategies on {cfg['index']} "
+    masks_by_family = None
+    if uni_mr is not None:
+        mr_mask = uni_mr.daily_mask(px.close.index, tickers) & liq.reindex_like(uni_mask).fillna(False)
+        masks_by_family = {fam: mr_mask for fam in cfg["mr_families"]}
+
+    fam_note = f"; {'/'.join(cfg.get('mr_families', []))} on {cfg.get('mr_index')}" if masks_by_family else ""
+    print(f"\n=== Backtesting {len(S.REGISTRY)} strategies on {cfg['index']}{fam_note} "
           f"({cfg['cost_bps']:.0f} bps/side) ===")
-    table, R = S.run_all(px, ctx, cost_bps=cfg["cost_bps"])
+    table, R = S.run_all(px, ctx, cost_bps=cfg["cost_bps"], masks_by_family=masks_by_family)
     table.to_csv(os.path.join(cfg["out_dir"], "per_strategy_metrics.csv"))
 
     print("\n=== FULL-SAMPLE combine (in-sample selection — optimistic) ===")
@@ -238,7 +266,7 @@ def main(cfg=CONFIG):
               f"Kelly leverage (unlevered cap) = {k['leverage_unlevered']:.2f}x")
         # capacity: net the selected strategies (equal-allocated) into a stock-level book
         alloc = pd.Series(1.0 / len(keep), index=keep)
-        capacity_report(px, net_book_weights(px, ctx, alloc), cfg)
+        capacity_report(px, net_book_weights(px, ctx, alloc, masks_by_family), cfg)
 
     print("\n=== HOLD-OUT combine (select+weight on train, report on unseen test) ===")
     is_, oos, keep_h = holdout_combine(R, cfg["holdout"], cfg["min_sharpe"])
