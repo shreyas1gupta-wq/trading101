@@ -64,15 +64,39 @@ def _norm(sym):
     return str(sym).strip().upper().replace(".NS", "").replace(".BO", "")
 
 
-def _adj_col(cols):
-    for c in cols:
-        if str(c).strip().lower() in ("adj close", "adjusted", "adj_close", "adjclose"):
-            return c
-    return None
+# canonical column <- accepted aliases (covers NSE bhavcopy and Yahoo-style exports)
+_ALIASES = {
+    "Date":     {"date", "timestamp", "tradedate", "trade_date", "dt", "time"},
+    "Open":     {"open", "open price", "openprice"},
+    "High":     {"high", "high price"},
+    "Low":      {"low", "low price"},
+    "Close":    {"close", "close price", "closeprice"},  # NOT 'last'/'ltp' (distinct fields)
+    "AdjClose": {"adj close", "adjusted", "adj_close", "adjclose", "adjusted close"},
+    "Volume":   {"volume", "tottrdqty", "total traded quantity", "totaltradedquantity", "qty", "vol"},
+    "Symbol":   {"symbol", "ticker", "name", "scrip", "scripname"},
+    "Series":   {"series"},
+}
+
+
+def _canon(df):
+    """Rename columns to canonical names and keep cash-equity rows (SERIES==EQ) if present."""
+    df = df.copy()
+    ren = {}
+    for c in df.columns:
+        lc = str(c).strip().lower()
+        for canon, al in _ALIASES.items():
+            if lc in al:
+                ren[c] = canon
+    df = df.rename(columns=ren)
+    df = df.loc[:, ~df.columns.duplicated()]             # guard against alias collisions
+    if "Series" in df.columns:                          # bhavcopy carries EQ/BE/SM... keep EQ
+        df = df[df["Series"].astype(str).str.strip() == "EQ"]
+    return df
 
 
 def load_prices(price_path, tickers, dates):
-    """Return (Prices, source_str). Falls back to synthetic if price_path is None/empty."""
+    """Return (Prices, source_str). Falls back to synthetic if price_path is None/empty.
+    Auto-handles bhavcopy (long, SYMBOL/SERIES/TOTTRDQTY) and Yahoo-style (Adj Close) layouts."""
     if not price_path or not os.path.exists(price_path):
         px, src = S.make_synthetic_ohlcv(tickers, dates)
         return px, src + "  [no price_path -> SYNTHETIC]"
@@ -84,28 +108,28 @@ def load_prices(price_path, tickers, dates):
         sym = _norm(sym)
         if sym not in want:
             return
-        df = df.copy()
-        df.columns = [str(c).strip() for c in df.columns]
-        df["Date"] = pd.to_datetime(df["Date"])
-        df = df.set_index("Date").sort_index()
-        adj = _adj_col(df.columns)
-        close = df[adj] if adj else df["Close"]
-        # if an adjusted close exists, scale OHLC by the same factor to stay consistent
-        scale = (close / df["Close"]).replace([np.inf, -np.inf], np.nan).fillna(1.0)
-        frames["open"][sym]   = df["Open"] * scale
-        frames["high"][sym]   = df["High"] * scale
-        frames["low"][sym]    = df["Low"] * scale
+        df = _canon(df)
+        if "Date" not in df.columns or "Close" not in df.columns:
+            return
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+        df = df.dropna(subset=["Date"]).set_index("Date").sort_index()
+        df = df[~df.index.duplicated(keep="last")]       # drop accidental dup rows
+        close = df["AdjClose"] if "AdjClose" in df.columns else df["Close"]
+        scale = (close / df["Close"]).replace([np.inf, -np.inf], np.nan).fillna(1.0)  # back-adjust OHLC
+        frames["open"][sym]   = df.get("Open", close) * scale
+        frames["high"][sym]   = df.get("High", close) * scale
+        frames["low"][sym]    = df.get("Low", close) * scale
         frames["close"][sym]  = close
         frames["volume"][sym] = df.get("Volume", pd.Series(np.nan, index=df.index))
 
     if os.path.isdir(price_path):                       # layout (a): one CSV per ticker
         for fp in glob.glob(os.path.join(price_path, "*.csv")):
             _ingest(os.path.splitext(os.path.basename(fp))[0], pd.read_csv(fp))
-    else:                                               # layout (b): one long CSV
-        big = pd.read_csv(price_path)
-        big.columns = [str(c).strip() for c in big.columns]
-        symcol = next(c for c in big.columns if c.lower() in ("symbol", "ticker", "name"))
-        for sym, df in big.groupby(symcol):
+    else:                                               # layout (b): one long CSV (e.g. bhavcopy)
+        big = _canon(pd.read_csv(price_path))
+        if "Symbol" not in big.columns:
+            raise ValueError("long CSV needs a Symbol/Ticker column (or use a per-ticker dir)")
+        for sym, df in big.groupby("Symbol"):
             _ingest(sym, df)
 
     idx = pd.bdate_range(dates.min(), dates.max())
