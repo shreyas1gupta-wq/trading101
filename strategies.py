@@ -21,7 +21,7 @@ cointegration) are REGISTERED AS STUBS (return cash) until event data is supplie
 import numpy as np
 import pandas as pd
 
-from swing_backtest import run_backtest, metrics, compute_rsi, TRADING_DAYS
+from swing_backtest import run_backtest, metrics, compute_rsi, TRADING_DAYS, COST_PER_SIDE_BPS
 from universe import IndexUniverse, NIFTY200
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -443,12 +443,12 @@ for _n, _f, _why in [
 # ══════════════════════════════════════════════════════════════════════════════
 #  Run all strategies -> returns matrix (feed to portfolio.combine)
 # ══════════════════════════════════════════════════════════════════════════════
-def run_all(px, ctx, verbose=True):
+def run_all(px, ctx, verbose=True, cost_bps=COST_PER_SIDE_BPS):
     rows, R = {}, {}
     for name, (family, fn) in REGISTRY.items():
         try:
             w = fn(px, ctx)
-            res = run_backtest(px.close, w)
+            res = run_backtest(px.close, w, cost_bps)
             if res["exposure"].abs().sum() < 1e-9:
                 if verbose: print(f"  skip {name:28s} (no trades)")
                 continue

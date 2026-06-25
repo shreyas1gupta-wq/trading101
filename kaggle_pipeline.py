@@ -51,6 +51,10 @@ CONFIG = {
     "holdout":     0.5,                 # fraction of time used for in-sample selection; rest is OOS
     "wf_train":    756,                 # walk-forward train window (~3y of trading days)
     "wf_test":     126,                 # walk-forward test window  (~6m); also the re-fit step
+    "cost_bps":    18.0,                # per-side slippage+cost in bps (round-trip ~2x); stress-test small-caps higher
+    "min_adv_cr":  5.0,                 # liquidity floor: drop names with 20d avg daily value < this (₹ crore)
+    "aum_cr":      50.0,                # assumed book size for the capacity report (₹ crore)
+    "max_participation": 0.10,          # a position may be at most this fraction of a name's ADV
     "out_dir":     ".",
 }
 
@@ -110,6 +114,47 @@ def load_prices(price_path, tickers, dates):
     px = S.Prices(panel(frames["open"]), panel(frames["high"]), panel(frames["low"]),
                   panel(frames["close"]), panel(frames["volume"]))
     return px, f"REAL prices from {price_path}"
+
+
+def adv_crore(px, n=20):
+    """20-day average daily traded value in ₹ crore (1 cr = 1e7)."""
+    return (px.close * px.volume).rolling(n).mean() / 1e7
+
+
+def liquidity_mask(px, min_adv_cr):
+    """Tradable only where 20d ADV >= floor. Filtering out illiquids is more honest
+    than modelling huge slippage on names you could never fill at swing size."""
+    return adv_crore(px) >= min_adv_cr
+
+
+def net_book_weights(px, ctx, strat_alloc):
+    """Net STOCK-level book = Σ_strategy (allocation × that strategy's stock weights).
+    portfolio.combine() gives weights ACROSS strategies; this turns them back into
+    actual per-name positions over time, which is what capacity is about."""
+    net = None
+    for name, a in strat_alloc.items():
+        w = S.REGISTRY[name][1](px, ctx) * a
+        net = w if net is None else net.add(w, fill_value=0.0)
+    return net.fillna(0.0)
+
+
+def capacity_report(px, book, cfg):
+    """`book` = dates x stocks net weight matrix. At the assumed AUM, how often does a
+    position exceed `max_participation` of that name's ADV, and what's the max book
+    size before the most-binding position breaches the cap?"""
+    adv = adv_crore(px).reindex(columns=book.columns)
+    held = book > 1e-6
+    pos_value = book * cfg["aum_cr"]                          # ₹cr per name per day
+    breaches = (pos_value > cfg["max_participation"] * adv) & held
+    pct = 100 * breaches.sum().sum() / max(1, held.sum().sum())
+    ratio = (cfg["max_participation"] * adv).where(held) / book.where(held)   # max AUM per position
+    max_aum = ratio.stack().quantile(0.05)   # robust: AUM keeping ~95% of positions within the cap
+    print(f"\n=== Capacity @ ₹{cfg['aum_cr']:.0f}cr book, max {cfg['max_participation']:.0%} of ADV/name ===")
+    print(f"  positions breaching the participation cap: {pct:.0f}% of held position-days")
+    print(f"  book size keeping ~95% of positions within the cap: ≈ ₹{max_aum:.0f} crore")
+    if pct > 20:
+        print("  ⚠ at this AUM many positions are too big for the names' liquidity -> "
+              "lower AUM, raise min_adv_cr, or add a per-name weight cap.")
 
 
 def coverage_report(px, uni):
@@ -182,10 +227,17 @@ def main(cfg=CONFIG):
     px, src = load_prices(cfg["price_path"], tickers, dates)
     print(f"Prices: {src}  shape={px.close.shape}")
     matched = coverage_report(px, uni)
-    ctx = {"membership": uni.daily_mask(px.close.index, tickers), "universe": uni}
 
-    print(f"\n=== Backtesting {len(S.REGISTRY)} strategies on {cfg['index']} ===")
-    table, R = S.run_all(px, ctx)
+    uni_mask = uni.daily_mask(px.close.index, tickers)
+    membership = uni_mask & liquidity_mask(px, cfg["min_adv_cr"]).reindex_like(uni_mask).fillna(False)
+    kept = membership.sum().sum() / max(1, uni_mask.sum().sum())
+    print(f"Liquidity filter (20d ADV >= ₹{cfg['min_adv_cr']:.0f}cr): "
+          f"{100*kept:.0f}% of member-days remain tradable")
+    ctx = {"membership": membership, "universe": uni}
+
+    print(f"\n=== Backtesting {len(S.REGISTRY)} strategies on {cfg['index']} "
+          f"({cfg['cost_bps']:.0f} bps/side) ===")
+    table, R = S.run_all(px, ctx, cost_bps=cfg["cost_bps"])
     table.to_csv(os.path.join(cfg["out_dir"], "per_strategy_metrics.csv"))
 
     print("\n=== FULL-SAMPLE combine (in-sample selection — optimistic) ===")
@@ -196,6 +248,9 @@ def main(cfg=CONFIG):
         weights.to_csv(os.path.join(cfg["out_dir"], "final_weights.csv"))
         print(f"avg strategy correlation = {corr['avg']:.2f}; "
               f"Kelly leverage (unlevered cap) = {k['leverage_unlevered']:.2f}x")
+        # capacity: net the selected strategies (equal-allocated) into a stock-level book
+        alloc = pd.Series(1.0 / len(keep), index=keep)
+        capacity_report(px, net_book_weights(px, ctx, alloc), cfg)
 
     print("\n=== HOLD-OUT combine (select+weight on train, report on unseen test) ===")
     is_, oos, keep_h = holdout_combine(R, cfg["holdout"], cfg["min_sharpe"])
