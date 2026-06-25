@@ -49,6 +49,8 @@ CONFIG = {
     "end":         "2024-12-31",
     "min_sharpe":  0.5,                 # selection bar (applied on the TRAIN window only)
     "holdout":     0.5,                 # fraction of time used for in-sample selection; rest is OOS
+    "wf_train":    756,                 # walk-forward train window (~3y of trading days)
+    "wf_test":     126,                 # walk-forward test window  (~6m); also the re-fit step
     "out_dir":     ".",
 }
 
@@ -138,6 +140,38 @@ def holdout_combine(R, split=0.5, min_sharpe=0.5):
             pd.DataFrame(oos).T[["cagr", "sharpe", "maxdd"]], keep)
 
 
+def walk_forward_combine(R, train=756, test=126, min_sharpe=0.5):
+    """Rolling walk-forward: the production-grade OOS test. For each test window,
+    RE-select strategies and RE-fit allocation weights using ONLY the preceding
+    `train` days, then apply them to the next `test` days. Stitch the test-window
+    returns into one continuous out-of-sample track per method. The strategy set
+    is allowed to change over time (as it must in practice).
+
+    train/test in trading days (756≈3y, 126≈6m). Returns (metrics, oos_series, log)."""
+    methods = ["equal", "inverse_vol", "min_variance", "risk_parity", "tangency/kelly", "hrp"]
+    oos = {m: [] for m in methods}
+    log = []
+    start = train
+    while start + test <= len(R):
+        Rtr, Rte = R.iloc[start - train:start], R.iloc[start:start + test]
+        keep = [c for c in Rtr.columns if portfolio._perf(Rtr[c])["sharpe"] >= min_sharpe]
+        if len(keep) >= 2:
+            _, w, _, _ = portfolio.combine(Rtr[keep])
+            for m in methods:
+                oos[m].append(Rte[keep] @ w[m])
+        else:                                            # nothing qualified -> hold cash
+            for m in methods:
+                oos[m].append(pd.Series(0.0, index=Rte.index))
+        log.append((R.index[start].date(), len(keep)))
+        start += test
+    if not log:
+        return None, None, log
+    series = {m: pd.concat(v) for m, v in oos.items()}
+    table = pd.DataFrame({m: portfolio._perf(s) for m, s in series.items()}).T[
+        ["cagr", "vol", "sharpe", "maxdd", "calmar"]]
+    return table, series, log
+
+
 # ── main ────────────────────────────────────────────────────────────────────────
 def main(cfg=CONFIG):
     uni = IndexUniverse(cfg["constituents"])
@@ -174,29 +208,56 @@ def main(cfg=CONFIG):
     else:
         print("Too few strategies cleared the bar on the train window.")
 
-    _plot(R, keep, cfg)
-    print("\nDone. Outputs: per_strategy_metrics.csv, final_weights.csv, equity_curves.png")
+    print("\n=== ROLLING WALK-FORWARD (production-grade OOS — trust THIS) ===")
+    wf_tab, wf_series, wf_log = walk_forward_combine(
+        R, cfg["wf_train"], cfg["wf_test"], cfg["min_sharpe"])
+    if wf_tab is not None:
+        print(f"re-fit every {cfg['wf_test']} days on a {cfg['wf_train']}-day trailing window; "
+              f"{len(wf_log)} folds")
+        print(f"strategies selected per fold: min={min(n for _, n in wf_log)}, "
+              f"max={max(n for _, n in wf_log)}, "
+              f"avg={np.mean([n for _, n in wf_log]):.1f}")
+        print(wf_tab.to_string())
+        pd.DataFrame(wf_series).to_csv(os.path.join(cfg["out_dir"], "walkforward_returns.csv"))
+        print("\n-> This is the realistic estimate: every allocation decision used ONLY past data.")
+    else:
+        print(f"Not enough history for a {cfg['wf_train']}+{cfg['wf_test']}-day walk-forward.")
+
+    _plot(R, keep, cfg, wf_series if wf_tab is not None else None)
+    print("\nDone. Outputs: per_strategy_metrics.csv, final_weights.csv, "
+          "walkforward_returns.csv, equity_curves.png, walkforward_equity.png")
 
 
-def _plot(R, keep, cfg):
+def _plot(R, keep, cfg, wf_series=None):
     try:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except Exception:
         return
-    if not keep:
-        return
-    Rsel = R[keep]
-    _, weights, _, _ = portfolio.combine(Rsel)
-    fig, ax = plt.subplots(figsize=(11, 6))
-    for m in ["equal", "hrp", "tangency/kelly", "min_variance"]:
-        if m in weights:
-            (1 + (Rsel @ weights[m])).cumprod().plot(ax=ax, label=m, lw=1.6)
-    (1 + Rsel.mean(axis=1)).cumprod().plot(ax=ax, label="avg of selected", ls="--", c="grey")
-    ax.set_yscale("log"); ax.legend(); ax.set_title(f"Combined portfolio equity — {cfg['index']}")
-    ax.set_ylabel("growth of 1 (log)")
-    fig.tight_layout(); fig.savefig(os.path.join(cfg["out_dir"], "equity_curves.png"), dpi=110)
+    if keep:                                             # full-sample (in-sample) curves
+        Rsel = R[keep]
+        _, weights, _, _ = portfolio.combine(Rsel)
+        fig, ax = plt.subplots(figsize=(11, 6))
+        for m in ["equal", "hrp", "tangency/kelly", "min_variance"]:
+            if m in weights:
+                (1 + (Rsel @ weights[m])).cumprod().plot(ax=ax, label=m, lw=1.6)
+        (1 + Rsel.mean(axis=1)).cumprod().plot(ax=ax, label="avg of selected", ls="--", c="grey")
+        ax.set_yscale("log"); ax.legend()
+        ax.set_title(f"Combined portfolio equity (full-sample) — {cfg['index']}")
+        ax.set_ylabel("growth of 1 (log)")
+        fig.tight_layout(); fig.savefig(os.path.join(cfg["out_dir"], "equity_curves.png"), dpi=110)
+        plt.close(fig)
+    if wf_series is not None:                            # walk-forward (out-of-sample) curves
+        fig, ax = plt.subplots(figsize=(11, 6))
+        for m in ["equal", "hrp", "tangency/kelly", "min_variance"]:
+            if m in wf_series:
+                (1 + wf_series[m]).cumprod().plot(ax=ax, label=m, lw=1.6)
+        ax.set_yscale("log"); ax.legend()
+        ax.set_title(f"Walk-forward (out-of-sample) equity — {cfg['index']}")
+        ax.set_ylabel("growth of 1 (log)")
+        fig.tight_layout(); fig.savefig(os.path.join(cfg["out_dir"], "walkforward_equity.png"), dpi=110)
+        plt.close(fig)
 
 
 if __name__ == "__main__":

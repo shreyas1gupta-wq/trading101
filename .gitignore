@@ -4,3 +4,5 @@ final_weights.csv
 equity_curves.png
 *.pyc
 __pycache__/
+walkforward_returns.csv
+walkforward_equity.png
