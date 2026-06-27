@@ -75,6 +75,8 @@ CONFIG = {
     "aum_cr":      50.0,                # assumed book size for the capacity report (₹ crore)
     "max_participation": 0.10,          # a position may be at most this fraction of a name's ADV
     "out_dir":     ".",
+    "per_strategy": True,               # run strategies ONE AT A TIME, saving each result (resumable)
+    "force":       False,               # True -> recompute even if a saved per-strategy result exists
 }
 
 
@@ -215,6 +217,50 @@ def walk_forward_combine(R, train=756, test=126, min_sharpe=0.5):
     return table, series, log
 
 
+def run_per_strategy(px, ctx, cfg, masks_by_family=None):
+    """Run strategies ONE AT A TIME: backtest each, SAVE its returns + a running
+    metrics checkpoint under out_dir/per_strategy/, SHOW the result, then move on.
+    Resumable — a strategy whose returns file already exists is loaded instead of
+    recomputed (set cfg['force']=True to recompute). Returns (metrics_table, R)."""
+    outdir = os.path.join(cfg["out_dir"], "per_strategy")
+    os.makedirs(outdir, exist_ok=True)
+    items = list(S.REGISTRY.items())
+    keys = ("cagr", "vol", "sharpe", "maxdd", "calmar")
+    rows, R = {}, {}
+    print(f"\n=== Running {len(items)} strategies ONE AT A TIME -> {outdir}/ "
+          f"(main: {cfg['index']}{'; MR on '+cfg['mr_index'] if masks_by_family else ''}) ===")
+    for i, (name, (family, fn)) in enumerate(items, 1):
+        tag = f"[{i:2d}/{len(items)}] {name:28s} {family:16s}"
+        fp = os.path.join(outdir, f"{name}.csv")
+        if os.path.exists(fp) and not cfg.get("force"):                  # resume
+            net = pd.read_csv(fp, index_col=0, parse_dates=True).squeeze("columns")
+            p = portfolio._perf(net)
+            rows[name] = {"family": family, **{k: p[k] for k in keys}}
+            R[name] = net
+            print(f"{tag} CAGR {p['cagr']*100:6.1f}%  Sharpe {p['sharpe']:5.2f}  "
+                  f"MaxDD {p['maxdd']*100:6.1f}%   (cached)")
+            continue
+        ctx_i = ({**ctx, "membership": masks_by_family[family]}
+                 if masks_by_family and family in masks_by_family else ctx)
+        try:
+            res = S.run_backtest(px.close, fn(px, ctx_i), cfg["cost_bps"])
+            if res["exposure"].abs().sum() < 1e-9:
+                print(f"{tag} (no trades — skipped)")
+                continue
+            net = res["net"]
+            p = portfolio._perf(net)
+            R[name] = net
+            net.rename("net").to_frame().to_csv(fp)                       # 1) save this result
+            rows[name] = {"family": family, **{k: p[k] for k in keys}}
+            pd.DataFrame(rows).T.to_csv(os.path.join(cfg["out_dir"], "per_strategy_metrics.csv"))  # checkpoint
+            print(f"{tag} CAGR {p['cagr']*100:6.1f}%  Sharpe {p['sharpe']:5.2f}  "  # 2) show
+                  f"MaxDD {p['maxdd']*100:6.1f}%   -> saved")
+        except Exception as ex:                                           # 3) then move on
+            print(f"{tag} ERROR: {ex}")
+    print(f"=== Saved {len(rows)} strategy result files -> per_strategy_metrics.csv ===")
+    return pd.DataFrame(rows).T, pd.DataFrame(R)
+
+
 # ── main ────────────────────────────────────────────────────────────────────────
 def main(cfg=CONFIG):
     uni = IndexUniverse(cfg["constituents"])              # main test universe (Nifty500)
@@ -253,7 +299,10 @@ def main(cfg=CONFIG):
     fam_note = f"; {'/'.join(cfg.get('mr_families', []))} on {cfg.get('mr_index')}" if masks_by_family else ""
     print(f"\n=== Backtesting {len(S.REGISTRY)} strategies on {cfg['index']}{fam_note} "
           f"({cfg['cost_bps']:.0f} bps/side) ===")
-    table, R = S.run_all(px, ctx, cost_bps=cfg["cost_bps"], masks_by_family=masks_by_family)
+    if cfg.get("per_strategy"):
+        table, R = run_per_strategy(px, ctx, cfg, masks_by_family)
+    else:
+        table, R = S.run_all(px, ctx, cost_bps=cfg["cost_bps"], masks_by_family=masks_by_family)
     table.to_csv(os.path.join(cfg["out_dir"], "per_strategy_metrics.csv"))
 
     print("\n=== FULL-SAMPLE combine (in-sample selection — optimistic) ===")
