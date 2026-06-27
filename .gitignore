@@ -9,6 +9,8 @@ walkforward_equity.png
 per_strategy/
 trades/
 trades_summary.csv
+strategy_specs.json
+strategy_cards.md
 
 # price cache (yfinance/EODHD per-ticker CSVs) — regenerable, can be large
 cache/

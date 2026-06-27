@@ -40,6 +40,7 @@ HOW TO RUN ON KAGGLE
 
 import os
 import glob
+import json
 import numpy as np
 import pandas as pd
 
@@ -299,6 +300,93 @@ def run_strategies(px, ctx, cfg, masks_by_family=None):
     return pd.DataFrame(rows).T, pd.DataFrame(R)
 
 
+_FAM_ORDER = ["mean-reversion", "cross-sectional", "price-action", "event", "seasonal"]
+
+
+def _specs_markdown(cfg):
+    mr = set(cfg.get("mr_families", []))
+    uni = lambda f: cfg.get("mr_index", "NIFTY200") if f in mr else cfg.get("index", "NIFTY500")
+    L = ["# Strategy specifications", "",
+         "Auto-generated from `strategies.SPECS` (kept beside the code). Shared controls:", "",
+         "- **Universe** — Nifty200 for mean-reversion, Nifty500 otherwise; 20-day ADV liquidity floor.",
+         "- **Regime gate** — exposure × {1.0 weak/sideways · 0.5 strong uptrend · 0.3 crash-brake "
+         "when 10-day market return < −8%}; seasonal strategies excepted.",
+         "- **Execution** — next-close fill, LC/UC circuit blocking, size-aware slippage.",
+         "- **Stops** — NO hard price stop-loss and NO trailing stop anywhere; exits are signal + "
+         "time-stop. Add an SL/trailing overlay if you want hard stops.", ""]
+    by = {}
+    for name, (fam, _) in S.REGISTRY.items():
+        by.setdefault(fam, []).append(name)
+    for fam in _FAM_ORDER:
+        if fam not in by:
+            continue
+        L.append(f"## {fam.title()}  ·  {uni(fam)}")
+        for name in by[fam]:
+            sp = S.SPECS.get(name, {})
+            L += [f"### {name}",
+                  f"- **entry** — {sp.get('entry', '?')}",
+                  f"- **exit** — {sp.get('exit', '?')}",
+                  f"- **stop / trail** — {sp.get('stop', '?')} / {sp.get('trail', '?')}",
+                  f"- **filters** — {sp.get('filters', '?')}",
+                  f"- **sizing** — {sp.get('sizing', '?')}  ·  **hold** — {sp.get('hold', '?')}"
+                  f"  ·  **data** — {sp.get('needs', '?')}", ""]
+    if S.STUBS:
+        L += ["## Stubs (registered, need extra data)"]
+        L += [f"- **{n}** ({fam}) — {why}" for n, (fam, why) in S.STUBS.items()] + [""]
+    return "\n".join(L)
+
+
+def save_specs(cfg):
+    """Save the strategy LOGIC (entry/exit/stop/trail/filters) — human-readable
+    STRATEGY_SPECS.md + machine-readable strategy_specs.json — before any results."""
+    mr = set(cfg.get("mr_families", []))
+    with open(os.path.join(cfg["out_dir"], "STRATEGY_SPECS.md"), "w") as fh:
+        fh.write(_specs_markdown(cfg))
+    cards = {n: {**S.spec_card(n),
+                 "universe": cfg.get("mr_index") if f in mr else cfg.get("index")}
+             for n, (f, _) in S.REGISTRY.items()}
+    with open(os.path.join(cfg["out_dir"], "strategy_specs.json"), "w") as fh:
+        json.dump(cards, fh, indent=2)
+
+
+def strategy_cards(cfg):
+    """Combine each strategy's LOGIC with its latest RESULTS into one note per strategy
+    (strategy_cards.md) — the 'save the logic, then keep adding results' artifact."""
+    mp = os.path.join(cfg["out_dir"], "per_strategy_metrics.csv")
+    if not os.path.exists(mp):
+        return None
+    m = pd.read_csv(mp, index_col=0)
+    tp = os.path.join(cfg["out_dir"], "trades_summary.csv")
+    ts = pd.read_csv(tp, index_col=0) if os.path.exists(tp) else None
+    mr = set(cfg.get("mr_families", []))
+    order = m.sort_values("sharpe", ascending=False).index if "sharpe" in m.columns else m.index
+    L = ["# Strategy cards — logic + latest results", "",
+         f"_main {cfg['index']} · mean-reversion {cfg.get('mr_index')} · sorted by Sharpe_", ""]
+    for name in order:
+        sp = S.SPECS.get(name, {})
+        fam = S.REGISTRY.get(name, (None,))[0]
+        u = cfg.get("mr_index") if fam in mr else cfg.get("index")
+        r = m.loc[name]
+        L += [f"## {name}  ·  {fam} · {u}",
+              f"- **entry** — {sp.get('entry', '?')}",
+              f"- **exit** — {sp.get('exit', '?')}  |  **stop** — {sp.get('stop', '?')}  |  **trail** — {sp.get('trail', '?')}",
+              f"- **filters** — {sp.get('filters', '?')}  |  **sizing** — {sp.get('sizing', '?')}  |  **hold** — {sp.get('hold', '?')}"]
+        res = (f"- **results** — CAGR {r['cagr']*100:.1f}% · Sharpe {r['sharpe']:.2f} · "
+               f"MaxDD {r['maxdd']*100:.1f}% · Calmar {r['calmar']:.2f}")
+        if "trades" in m.columns and pd.notna(r.get("trades")):
+            res += f" · {int(r['trades'])} trades"
+        L.append(res)
+        if ts is not None and name in ts.index:
+            t = ts.loc[name]
+            L.append(f"- **trade-stats** — win {t['win_rate']*100:.0f}% · payoff {t['payoff']:.2f} · "
+                     f"expectancy {t['expectancy_pct']:.2f}%/trade · avg hold {t['avg_hold_d']:.1f}d")
+        L.append("")
+    txt = "\n".join(L)
+    with open(os.path.join(cfg["out_dir"], "strategy_cards.md"), "w") as fh:
+        fh.write(txt)
+    return txt
+
+
 def trades_summary(cfg):
     """Roll every saved blotter (trades/<name>_trades.csv) up into one trade-stats
     table (win rate / payoff / expectancy / hold), saved to trades_summary.csv."""
@@ -349,6 +437,7 @@ def main(cfg=CONFIG):
         mr_mask = uni_mr.daily_mask(px.close.index, tickers) & liq.reindex_like(uni_mask).fillna(False)
         masks_by_family = {fam: mr_mask for fam in cfg["mr_families"]}
 
+    save_specs(cfg)                                          # FIRST: save the strategy logic notes
     fam_note = f"; {'/'.join(cfg.get('mr_families', []))} on {cfg.get('mr_index')}" if masks_by_family else ""
     print(f"\n=== Backtesting {len(S.REGISTRY)} strategies on {cfg['index']}{fam_note} "
           f"({cfg['cost_bps']:.0f} bps/side) ===")
@@ -366,6 +455,7 @@ def main(cfg=CONFIG):
             print("\n=== Trade stats per strategy (from blotters; sorted by expectancy) ===")
             print(ts.sort_values("expectancy_pct", ascending=False)[cols].head(15).to_string())
             print("   expectancy_pct = average return PER TRADE (the per-trade edge after costs)")
+        strategy_cards(cfg)                                  # THEN: logic + results, one note per strategy
 
     print("\n=== FULL-SAMPLE combine (in-sample selection — optimistic) ===")
     Rsel, keep = S.select_by_sharpe(table, R, cfg["min_sharpe"])

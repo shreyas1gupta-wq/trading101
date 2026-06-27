@@ -441,6 +441,107 @@ for _n, _f, _why in [
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  Strategy specifications  (entry / exit / stop / trail / filters per strategy)
+# ══════════════════════════════════════════════════════════════════════════════
+# Shared controls (apply to every strategy unless noted):
+#   • universe   — Nifty200 for mean-reversion, Nifty500 for the rest
+#   • liquidity  — 20-day ADV floor (illiquid names dropped before signals)
+#   • regime gate — exposure × {1.0 weak/sideways · 0.5 strong uptrend · 0.3 crash-brake
+#                   when the 10-day market return < −8%}  (seasonal strategies excepted)
+#   • execution  — next-close fill, LC/UC circuit blocking, size-aware slippage
+# NOTE: there are NO hard price stop-losses and NO trailing stops anywhere — exits are
+# SIGNAL + TIME-STOP (max-hold) only; the regime gate is the crash control. (Add an SL/
+# trailing overlay if you want hard stops — it is not currently part of the strategies.)
+_DEF = dict(stop="none (signal + time-stop only)", trail="none",
+            sizing="inverse-vol across signalled members × regime gate", needs="Close")
+def _s(**kw):
+    return {**_DEF, **kw}
+
+SPECS = {
+    # ── A. mean-reversion (Nifty200) ──
+    "A_rsi2": _s(entry="RSI(2) < 10 and close > 200-DMA", exit="RSI(2) > 70, else 6-day time-stop",
+                 filters="200-DMA uptrend + regime gate + ADV floor", hold="≤6d"),
+    "A_connors_rsi": _s(entry="ConnorsRSI ≈ ½[RSI(3) of price + RSI(2) of up/down streak] < 15",
+                        exit="ConnorsRSI > 65, else 6-day time-stop", filters="regime gate + ADV floor", hold="≤6d"),
+    "A_cumulative_rsi": _s(entry="2-day sum of RSI(2) < 35 and close > 200-DMA",
+                           exit="RSI(2) > 65, else 6-day time-stop", filters="200-DMA uptrend + regime + ADV", hold="≤6d"),
+    "A_ibs": _s(entry="IBS < 0.2 (close near the day's low)", exit="IBS > 0.7, else 5-day time-stop",
+                filters="regime gate + ADV floor", hold="≤5d", needs="High/Low/Close"),
+    "A_bollinger_pctb": _s(entry="%B < 0 (close below lower 20,2σ Bollinger band)",
+                           exit="close > 20-SMA, else 8-day time-stop", filters="regime gate + ADV floor", hold="≤8d"),
+    "A_dist_ma_z": _s(entry="(close − 50-SMA) / ATR(14) < −2.5", exit="z > −0.2, else 10-day time-stop",
+                      filters="regime gate + ADV floor", hold="≤10d", needs="High/Low/Close"),
+    "A_ou_reversion": _s(entry="10-day z-score of close < −1.5", exit="z > 0, else 12-day time-stop",
+                         filters="regime gate + ADV floor", hold="≤12d"),
+    "A_williams_r": _s(entry="Williams %R(10) < −90", exit="%R > −30, else 6-day time-stop",
+                       filters="regime gate + ADV floor", hold="≤6d", needs="High/Low/Close"),
+    "A_cci": _s(entry="CCI(20) < −150", exit="CCI > 0, else 8-day time-stop",
+                filters="regime gate + ADV floor", hold="≤8d", needs="High/Low/Close"),
+    "A_double7s": _s(entry="close = 7-day low and close > 200-DMA", exit="close = 7-day high, else 10-day time-stop",
+                     filters="200-DMA uptrend + regime + ADV", hold="≤10d"),
+    "A_rsi2_divergence": _s(entry="RSI(2) < 10 and RSI(14) rising vs 5 days ago", exit="RSI(14) > 60, else 8-day time-stop",
+                            filters="regime gate + ADV floor", hold="≤8d"),
+    "A_ensemble_mr": _s(entry="≥2 of {RSI(2)<10, IBS<0.2, %B<0, z(10)<−2}", exit="all four signals off, else 6-day time-stop",
+                        filters="regime gate + ADV floor", hold="≤6d", needs="High/Low/Close"),
+    # ── D. cross-sectional (Nifty500) ──
+    "D_xs_reversal_5d": _s(entry="long the bottom 10% by 5-day return (biggest losers)", exit="hold to next rebalance",
+                           filters="regime gate + ADV floor", hold="rebalance 5d",
+                           sizing="equal-weight selected decile × regime gate"),
+    "D_reversal_1m": _s(entry="long the bottom 10% by 21-day return", exit="hold to next rebalance",
+                        filters="regime gate + ADV floor", hold="rebalance 21d",
+                        sizing="equal-weight selected decile × regime gate"),
+    "D_rel_strength_4w": _s(entry="long the TOP 10% by 21-day return (winners)", exit="hold to next rebalance",
+                            filters="regime gate + ADV floor", hold="rebalance 5d",
+                            sizing="equal-weight selected decile × regime gate"),
+    "D_residual_momentum": _s(entry="long top 10% by 21-day sum of market-beta-residual return (β over 60d)",
+                              exit="hold to next rebalance", filters="regime gate + ADV floor", hold="rebalance 21d",
+                              sizing="equal-weight selected decile × regime gate"),
+    "D_low_vol_tilt": _s(entry="long the bottom 10% by 20-day volatility (lowest-vol names)", exit="hold to next rebalance",
+                         filters="regime gate + ADV floor", hold="rebalance 21d",
+                         sizing="equal-weight selected decile × regime gate"),
+    "D_beta_rotation": _s(entry="long the bottom 10% by 60-day market beta (low-beta)", exit="hold to next rebalance",
+                          filters="regime gate + ADV floor", hold="rebalance 21d",
+                          sizing="equal-weight selected decile × regime gate"),
+    "D_dispersion_gated_reversal": _s(entry="5-day reversal bottom 10%, ONLY when cross-sectional 5-day dispersion > its 120-day median",
+                                      exit="hold to next rebalance", filters="dispersion gate + regime gate + ADV floor",
+                                      hold="rebalance 5d", sizing="equal-weight selected decile × regime gate"),
+    # ── E. price-action (Nifty500) ──
+    "E_gap_down_fade": _s(entry="open < prev close × 0.97 (gap down > 3%)", exit="close ≥ prev close (gap filled), else 5-day time-stop",
+                          filters="regime gate + ADV floor", hold="≤5d", needs="Open/Close"),
+    "E_failed_breakdown": _s(entry="low < prior 20-day low AND close > that low (broke then reclaimed)",
+                             exit="close > 20-SMA, else 8-day time-stop", filters="regime gate + ADV floor", hold="≤8d", needs="Low/Close"),
+    "E_selling_climax": _s(entry="volume > 2× 20-day avg AND lower-wick > 66% of range AND down day",
+                           exit="close > 5-SMA, else 5-day time-stop", filters="regime gate + ADV floor", hold="≤5d", needs="OHLCV"),
+    "E_vwap_reversion": _s(entry="close < 20-day VWAP × 0.95", exit="close ≥ VWAP, else 8-day time-stop",
+                           filters="regime gate + ADV floor", hold="≤8d", needs="OHLCV"),
+    "E_pullback_to_ma": _s(entry="uptrend (close>50-SMA, 20-SMA rising) AND low ≤ 20-SMA AND close > 20-SMA",
+                           exit="close = 10-day high, else 8-day time-stop", filters="regime gate + ADV floor", hold="≤8d", needs="Low/Close"),
+    "E_n_down_days": _s(entry="4 consecutive down days AND close > 50-SMA", exit="first up day, else 5-day time-stop",
+                        filters="regime gate + ADV floor", hold="≤5d"),
+    "E_nr7_breakout": _s(entry="prior day = narrowest range in 7 (NR7) AND close > prior day's high",
+                         exit="close < 5-SMA, else 5-day time-stop", filters="regime gate + ADV floor", hold="≤5d", needs="High/Low/Close"),
+    "E_bollinger_squeeze": _s(entry="prior-day bandwidth = 126-day minimum (squeeze) AND close > prev close",
+                              exit="close < 10-SMA, else 10-day time-stop", filters="regime gate + ADV floor", hold="≤10d"),
+    # ── C. event / seasonal ──
+    "C_index_reconstitution": _s(entry="buy names ADDED to the index at each semi-annual reconstitution",
+                                 exit="hold ~20 trading days", filters="regime gate", hold="~20d",
+                                 sizing="equal-weight the additions × regime gate", needs="constituent snapshots"),
+    "C_turn_of_month": _s(entry="hold ALL members on the last trading day + first 3 of each month",
+                          exit="outside that window", filters="universe + ADV (NO regime gate)", hold="~4d/month",
+                          sizing="equal-weight all members", needs="Close + calendar"),
+    "C_expiry_week": _s(entry="hold ALL members during the last 5 trading days of each month (≈ F&O expiry week)",
+                        exit="outside that window", filters="universe + ADV (NO regime gate)", hold="5d/month",
+                        sizing="equal-weight all members", needs="Close + calendar"),
+}
+
+
+def spec_card(name):
+    """Full logic card for a strategy: family + entry/exit/stop/trail/filters/sizing."""
+    fam = REGISTRY.get(name, (None,))[0]
+    return {"strategy": name, "family": fam, **SPECS.get(name, {})}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  Run all strategies -> returns matrix (feed to portfolio.combine)
 # ══════════════════════════════════════════════════════════════════════════════
 def run_all(px, ctx, verbose=True, cost_bps=COST_PER_SIDE_BPS, masks_by_family=None):
