@@ -46,6 +46,7 @@ import pandas as pd
 import portfolio
 import strategies as S
 import data_sources as DS
+import execution as EX
 from universe import IndexUniverse, NIFTY200, NIFTY500
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
@@ -75,8 +76,14 @@ CONFIG = {
     "aum_cr":      50.0,                # assumed book size for the capacity report (₹ crore)
     "max_participation": 0.10,          # a position may be at most this fraction of a name's ADV
     "out_dir":     ".",
-    "per_strategy": True,               # run strategies ONE AT A TIME, saving each result (resumable)
-    "force":       False,               # True -> recompute even if a saved per-strategy result exists
+    "per_strategy": True,               # save each strategy's result individually (resumable)
+    "batch_size":  5,                   # process strategies this many at a time, saving after each
+    "backtest":    "realistic",         # "realistic" (LC/UC circuit + size-aware slippage) or "simple"
+    "save_trades": True,                # write a per-strategy trade blotter (entry/exit/trail) to trades/
+    "impact_coef": 1.0,                 # sqrt market impact: +bps ≈ coef × daily_vol_bps × sqrt(trade/ADV)
+    "illiquid_surcharge_bps": 25.0,     # per-side add when ADV is unknown (close-only names)
+    "circuit_band": 0.20,               # LC/UC daily band: block buys at UC, sells at LC
+    "force":       False,               # True -> recompute even if a saved result exists
 }
 
 
@@ -217,47 +224,78 @@ def walk_forward_combine(R, train=756, test=126, min_sharpe=0.5):
     return table, series, log
 
 
-def run_per_strategy(px, ctx, cfg, masks_by_family=None):
-    """Run strategies ONE AT A TIME: backtest each, SAVE its returns + a running
-    metrics checkpoint under out_dir/per_strategy/, SHOW the result, then move on.
-    Resumable — a strategy whose returns file already exists is loaded instead of
-    recomputed (set cfg['force']=True to recompute). Returns (metrics_table, R)."""
+def run_strategies(px, ctx, cfg, masks_by_family=None):
+    """Backtest every registered strategy in BATCHES (cfg['batch_size'], default 5),
+    saving after each: for each strategy SAVE its returns to per_strategy/<name>.csv,
+    a full trade blotter (entry/exit/trail) to trades/<name>_trades.csv, and append to
+    a running per_strategy_metrics.csv; SHOW the result; then move on. Loops batch by
+    batch until ALL are finished. Resumable — a strategy whose returns file exists is
+    loaded, not recomputed (cfg['force']=True to recompute). cfg['backtest']=='realistic'
+    uses the LC/UC + size-aware-slippage engine; 'simple' uses the flat-cost engine."""
     outdir = os.path.join(cfg["out_dir"], "per_strategy")
+    tradesdir = os.path.join(cfg["out_dir"], "trades")
     os.makedirs(outdir, exist_ok=True)
+    save_trades = cfg.get("save_trades", True)
+    if save_trades:
+        os.makedirs(tradesdir, exist_ok=True)
+    realistic = cfg.get("backtest", "realistic") == "realistic"
     items = list(S.REGISTRY.items())
+    bs = max(1, int(cfg.get("batch_size", 5)))
+    nb = (len(items) + bs - 1) // bs
     keys = ("cagr", "vol", "sharpe", "maxdd", "calmar")
     rows, R = {}, {}
-    print(f"\n=== Running {len(items)} strategies ONE AT A TIME -> {outdir}/ "
-          f"(main: {cfg['index']}{'; MR on '+cfg['mr_index'] if masks_by_family else ''}) ===")
-    for i, (name, (family, fn)) in enumerate(items, 1):
-        tag = f"[{i:2d}/{len(items)}] {name:28s} {family:16s}"
-        fp = os.path.join(outdir, f"{name}.csv")
-        if os.path.exists(fp) and not cfg.get("force"):                  # resume
-            net = pd.read_csv(fp, index_col=0, parse_dates=True).squeeze("columns")
-            p = portfolio._perf(net)
-            rows[name] = {"family": family, **{k: p[k] for k in keys}}
-            R[name] = net
-            print(f"{tag} CAGR {p['cagr']*100:6.1f}%  Sharpe {p['sharpe']:5.2f}  "
-                  f"MaxDD {p['maxdd']*100:6.1f}%   (cached)")
-            continue
-        ctx_i = ({**ctx, "membership": masks_by_family[family]}
-                 if masks_by_family and family in masks_by_family else ctx)
-        try:
-            res = S.run_backtest(px.close, fn(px, ctx_i), cfg["cost_bps"])
-            if res["exposure"].abs().sum() < 1e-9:
-                print(f"{tag} (no trades — skipped)")
+    eng = "realistic (LC/UC + size-aware slippage)" if realistic else "simple (flat cost)"
+    print(f"\n=== Backtesting {len(items)} strategies, {bs} at a time, until done  "
+          f"[{eng}; main {cfg['index']}{'; MR '+cfg['mr_index'] if masks_by_family else ''}] ===")
+    for b in range(nb):
+        batch = items[b * bs:(b + 1) * bs]
+        print(f"\n── batch {b+1}/{nb}: {', '.join(n for n, _ in batch)}")
+        for name, (family, fn) in batch:
+            fp = os.path.join(outdir, f"{name}.csv")
+            if os.path.exists(fp) and not cfg.get("force"):                       # resume
+                net = pd.read_csv(fp, index_col=0, parse_dates=True).squeeze("columns")
+                p = portfolio._perf(net)
+                row = {"family": family, **{k: p[k] for k in keys}}
+                bf = os.path.join(tradesdir, f"{name}_trades.csv")
+                if save_trades and os.path.exists(bf):
+                    row["trades"] = max(0, sum(1 for _ in open(bf)) - 1)           # recover count from blotter
+                rows[name] = row
+                R[name] = net
+                print(f"   {name:28s} Sharpe {p['sharpe']:5.2f}  (cached)")
                 continue
-            net = res["net"]
-            p = portfolio._perf(net)
-            R[name] = net
-            net.rename("net").to_frame().to_csv(fp)                       # 1) save this result
-            rows[name] = {"family": family, **{k: p[k] for k in keys}}
-            pd.DataFrame(rows).T.to_csv(os.path.join(cfg["out_dir"], "per_strategy_metrics.csv"))  # checkpoint
-            print(f"{tag} CAGR {p['cagr']*100:6.1f}%  Sharpe {p['sharpe']:5.2f}  "  # 2) show
-                  f"MaxDD {p['maxdd']*100:6.1f}%   -> saved")
-        except Exception as ex:                                           # 3) then move on
-            print(f"{tag} ERROR: {ex}")
-    print(f"=== Saved {len(rows)} strategy result files -> per_strategy_metrics.csv ===")
+            ctx_i = ({**ctx, "membership": masks_by_family[family]}
+                     if masks_by_family and family in masks_by_family else ctx)
+            try:
+                w = fn(px, ctx_i)
+                if realistic:
+                    res = EX.realistic_backtest(px, w, cfg)
+                    realized = res["realized"]
+                else:
+                    res = S.run_backtest(px.close, w, cfg["cost_bps"])
+                    realized = w.reindex_like(px.close).fillna(0.0).clip(lower=0.0)
+                if res["exposure"].abs().sum() < 1e-9:
+                    print(f"   {name:28s} (no trades — skipped)")
+                    continue
+                net = res["net"]
+                p = portfolio._perf(net)
+                R[name] = net
+                net.rename("net").to_frame().to_csv(fp)                            # 1) returns
+                ntr = -1
+                if save_trades:                                                   # 2) trade blotter
+                    bl = EX.trade_blotter(realized, px)
+                    bl.to_csv(os.path.join(tradesdir, f"{name}_trades.csv"), index=False)
+                    ntr = len(bl)
+                yrs = max(len(net) / 252, 1e-9)
+                rows[name] = {"family": family, **{k: p[k] for k in keys},
+                              "trades": ntr, "ann_turn": res["turnover"].sum() / yrs}
+                pd.DataFrame(rows).T.to_csv(os.path.join(cfg["out_dir"], "per_strategy_metrics.csv"))  # 3) append
+                print(f"   {name:28s} CAGR {p['cagr']*100:6.1f}%  Sharpe {p['sharpe']:5.2f}  "  # show
+                      f"MaxDD {p['maxdd']*100:6.1f}%  trades {ntr:4d}  -> saved")
+            except Exception as ex:                                               # then move on
+                print(f"   {name:28s} ERROR: {ex}")
+        print(f"   -- batch {b+1}/{nb} done ({len(rows)}/{len(items)} cumulative)")
+    print(f"=== Finished: {len(rows)} strategies saved -> per_strategy_metrics.csv"
+          f"{'; blotters -> trades/' if save_trades else ''} ===")
     return pd.DataFrame(rows).T, pd.DataFrame(R)
 
 
@@ -300,7 +338,7 @@ def main(cfg=CONFIG):
     print(f"\n=== Backtesting {len(S.REGISTRY)} strategies on {cfg['index']}{fam_note} "
           f"({cfg['cost_bps']:.0f} bps/side) ===")
     if cfg.get("per_strategy"):
-        table, R = run_per_strategy(px, ctx, cfg, masks_by_family)
+        table, R = run_strategies(px, ctx, cfg, masks_by_family)
     else:
         table, R = S.run_all(px, ctx, cost_bps=cfg["cost_bps"], masks_by_family=masks_by_family)
     table.to_csv(os.path.join(cfg["out_dir"], "per_strategy_metrics.csv"))

@@ -7,6 +7,7 @@ __pycache__/
 walkforward_returns.csv
 walkforward_equity.png
 per_strategy/
+trades/
 
 # price cache (yfinance/EODHD per-ticker CSVs) — regenerable, can be large
 cache/
