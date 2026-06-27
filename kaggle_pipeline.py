@@ -299,6 +299,21 @@ def run_strategies(px, ctx, cfg, masks_by_family=None):
     return pd.DataFrame(rows).T, pd.DataFrame(R)
 
 
+def trades_summary(cfg):
+    """Roll every saved blotter (trades/<name>_trades.csv) up into one trade-stats
+    table (win rate / payoff / expectancy / hold), saved to trades_summary.csv."""
+    files = sorted(glob.glob(os.path.join(cfg["out_dir"], "trades", "*_trades.csv")))
+    if not files:
+        return None
+    rows = {}
+    for f in files:
+        name = os.path.basename(f)[:-len("_trades.csv")]
+        rows[name] = EX.trade_stats(pd.read_csv(f))
+    tab = pd.DataFrame(rows).T
+    tab.to_csv(os.path.join(cfg["out_dir"], "trades_summary.csv"))
+    return tab
+
+
 # ── main ────────────────────────────────────────────────────────────────────────
 def main(cfg=CONFIG):
     uni = IndexUniverse(cfg["constituents"])              # main test universe (Nifty500)
@@ -342,6 +357,15 @@ def main(cfg=CONFIG):
     else:
         table, R = S.run_all(px, ctx, cost_bps=cfg["cost_bps"], masks_by_family=masks_by_family)
     table.to_csv(os.path.join(cfg["out_dir"], "per_strategy_metrics.csv"))
+
+    if cfg.get("per_strategy") and cfg.get("save_trades", True):
+        ts = trades_summary(cfg)
+        if ts is not None:
+            cols = ["n_trades", "win_rate", "avg_win_pct", "avg_loss_pct", "payoff",
+                    "expectancy_pct", "avg_hold_d"]
+            print("\n=== Trade stats per strategy (from blotters; sorted by expectancy) ===")
+            print(ts.sort_values("expectancy_pct", ascending=False)[cols].head(15).to_string())
+            print("   expectancy_pct = average return PER TRADE (the per-trade edge after costs)")
 
     print("\n=== FULL-SAMPLE combine (in-sample selection — optimistic) ===")
     Rsel, keep = S.select_by_sharpe(table, R, cfg["min_sharpe"])

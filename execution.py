@@ -138,3 +138,33 @@ def trade_blotter(realized, px, min_w=1e-6):
             "ret_pct", "mfe_pct", "mae_pct", "avg_weight", "open_at_end"]
     bl = pd.DataFrame(rows, columns=cols)
     return bl.sort_values(["entry_date", "ticker"]).reset_index(drop=True) if len(bl) else bl
+
+
+def trade_stats(bl):
+    """Trade-level statistics from one blotter: win rate, average win/loss, payoff
+    ratio, and per-trade EXPECTANCY (= mean trade return, i.e. win%·avgWin + loss%·avgLoss).
+    Expectancy is the bottom line — a strategy can win often yet bleed if the losers are
+    big, or win rarely yet profit if the winners run."""
+    if bl is None or len(bl) == 0:
+        return {"n_trades": 0, "win_rate": np.nan, "avg_win_pct": np.nan,
+                "avg_loss_pct": np.nan, "payoff": np.nan, "expectancy_pct": np.nan,
+                "avg_hold_d": np.nan, "avg_mfe_pct": np.nan, "avg_mae_pct": np.nan,
+                "best_pct": np.nan, "worst_pct": np.nan, "open_at_end": 0}
+    r = bl["ret_pct"].astype(float)
+    wins, losses = r[r > 0], r[r <= 0]
+    avg_win = wins.mean() if len(wins) else 0.0
+    avg_loss = losses.mean() if len(losses) else 0.0                  # <= 0
+    return {
+        "n_trades": int(len(r)),
+        "win_rate": round(len(wins) / len(r), 4),
+        "avg_win_pct": round(avg_win, 2),
+        "avg_loss_pct": round(avg_loss, 2),
+        "payoff": round(avg_win / abs(avg_loss), 2) if avg_loss < 0 else np.nan,
+        "expectancy_pct": round(r.mean(), 3),                        # per-trade edge
+        "avg_hold_d": round(bl["hold_days"].mean(), 1),
+        "avg_mfe_pct": round(bl["mfe_pct"].mean(), 2),
+        "avg_mae_pct": round(bl["mae_pct"].mean(), 2),
+        "best_pct": round(r.max(), 1),
+        "worst_pct": round(r.min(), 1),
+        "open_at_end": int(bl["open_at_end"].sum()) if "open_at_end" in bl else 0,
+    }
