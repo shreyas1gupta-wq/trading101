@@ -59,15 +59,17 @@ CONFIG = {
     "mr_families": ["mean-reversion"],  # strategy families restricted to the MR universe
     "price_path":  None,                # back-compat: a single local dir/CSV (added as a 'local' source)
     "sources": [                        # the free-data WATERFALL — first source that has a ticker wins
-        {"type": "yfinance", "suffix": ".NS"},                                      # survivors, adjusted, unlimited
-        {"type": "local", "path": "data/NIFTY500_delisted_prices_2005_2025.xlsx"},  # bundled delisted panel
+        {"type": "local", "path": "data/NIFTY500_master_prices_2015_2025.xlsx"},    # bundled REAL panel: 976 tickers,
+                                                                                     #   2015-2025, confirmed split/bonus-adjusted
+        {"type": "local", "path": "data/NIFTY500_delisted_prices_2005_2025.xlsx"},  # bundled delisted panel (extra names + pre-2015)
+        {"type": "yfinance", "suffix": ".NS"},                                      # extends past the bundled window; unlimited
         # {"type": "local", "path": "/kaggle/input/<your-nse-eod>"},                # <- add your saved Kaggle EOD here
         {"type": "eodhd", "exchange": "NSE", "max_calls": 20},                      # last resort; key from $EODHD_API_KEY
     ],
     "cache_dir":   "cache",             # per-ticker CSV cache (yfinance/EODHD) so re-runs don't re-fetch
     "benchmarks":  "data/factor_navs_2005_2025.xlsx",   # index NAV series for a buy&hold comparison (optional)
-    "start":       "2006-01-01",
-    "end":         "2024-12-31",
+    "start":       "2015-01-01",        # matches the bundled master panel's real coverage (extend "end" on Kaggle w/ yfinance)
+    "end":         "2025-12-05",
     "min_sharpe":  0.5,                 # selection bar (applied on the TRAIN window only)
     "holdout":     0.5,                 # fraction of time used for in-sample selection; rest is OOS
     "wf_train":    756,                 # walk-forward train window (~3y of trading days)
