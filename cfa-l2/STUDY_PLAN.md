@@ -1,8 +1,17 @@
 # CFA Level 2 — 20-Day Sprint Plan (±5–7 days flex)
 
-**Candidate:** Neha | **Exam:** ~Aug 26, 2026 | **Core plan:** 20 days | **Flex window:** up to Day 27 | **Reserve:** remaining ~13 days for mocks + final polish
+**Candidate:** Neha | **Start:** Mon 2026-07-20 (Day 1) | **Exam:** ~Aug 26, 2026 | **Core plan:** 20 days | **Flex window:** up to Day 27 | **Reserve:** remaining days for mocks + final polish
 **Profile:** Very fast learner — cleared L1 in 8 days @ ~10 hr/day with ~2,000 questions. Zero L2 prep at start. Weakest: FSA, Quant formulas.
 **Method:** Claude chat is the primary teacher (concepts → worked examples → vignettes). Target effort ~10 hr/day. Target question volume: **60–80 Q/day, ~2,000+ total including mocks.**
+
+**Companion files (read alongside this plan):**
+- `CURRICULUM_CHECKLIST.md` — every topic → reading → concept, verified vs official 2026 structure. The "nothing missed" master; tick items as taught+drilled.
+- `RESOURCES.md` — verified links (official, free, paid, communities) + the daily drilling loop.
+- `QUESTION_BANK.md` — drilling system, mock schedule, item-set format, seed questions.
+- `FORMULA_SHEET.md` / `HIGH_YIELD.md` — auto-built revision + pattern bank.
+- `PROGRESS.md` — status, scores, weak flags. **Read this first every session.**
+
+**Curriculum note (verified July 2026):** 45 learning modules, unchanged vs 2025 except 1 LOS removed in Quant. **2026 change:** Alternatives dropped the *Private Equity Investments* reading and added *Hedge Fund Strategies* — PE/LBO math is de-emphasized this cycle (see Day 10).
 
 ---
 
@@ -55,8 +64,8 @@ Dividends & buybacks (payout theories, buyback EPS/BV math, FCFE coverage) · ES
 - **Day 8:** Forward commitments — equity/bond forwards & futures, FRAs (price + mid-life value), interest rate swaps, currency & equity swaps.
 - **Day 9:** Contingent claims — binomial (1/2-period, hedge ratio), BSM interpretation, Greeks, implied vol · Derivatives mega item-set.
 
-### Day 10 · Alternative Investments (entire topic)
-Private real estate (direct cap, DCF, cap rates, NOI) · REITs (NAVPS, FFO/AFFO) · Private equity (LBO/VC math, DPI/RVPI/TVPI, carried interest) · Commodities (contango/backwardation, roll yield) · Hedge funds overview. Item sets + QBank.
+### Day 10 · Alternative Investments (entire topic — 2026: 4 modules, no standalone PE reading)
+Commodities & commodity derivatives (spot vs futures, theory of storage, convenience yield, **contango/backwardation, roll yield**, index construction) · Private real estate (income approach — **direct cap NOI/cap rate, DCF**, cost & sales-comparison) · REITs / public real estate (**FFO, AFFO, NAVPS**, price-to-FFO) · **Hedge fund strategies** (equity L/S & market-neutral, event-driven, relative value, opportunistic/global macro; upside/downside capture). Item sets + QBank. *(PE metrics like DPI/RVPI/TVPI are no longer a standalone L2 reading — only touch lightly if time permits.)*
 
 ### Day 11 · Economics (entire topic)
 FX: bid-ask, cross rates, forward points, **all parity conditions** (CIRP/UIRP/PPP/Fisher), carry trade, FX forecasting · Economic growth (growth accounting, convergence, classical/neoclassical/endogenous). Item sets + QBank.

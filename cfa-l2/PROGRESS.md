@@ -1,6 +1,7 @@
 # CFA L2 Progress Tracker — 20-Day Sprint
 
-**Plan start:** 2026-07-18 (Day 1) | **Exam:** ~2026-08-26 | **Core:** Days 1–20 | **Flex:** 21–27 | **Reserve:** to exam
+**Plan start:** Mon 2026-07-20 (Day 1) | **Exam:** ~2026-08-26 | **Core:** Days 1–20 | **Flex:** 21–27 | **Reserve:** to exam
+**Companion files:** STUDY_PLAN.md · CURRICULUM_CHECKLIST.md · RESOURCES.md · QUESTION_BANK.md · FORMULA_SHEET.md · HIGH_YIELD.md
 
 ## Status
 
