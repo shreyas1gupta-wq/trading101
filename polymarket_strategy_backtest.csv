@@ -1,0 +1,5 @@
+strategy,n_qualifying_pricewise,n_bets_placed,avg_stake_%bankroll,sharpe_per_bet,median_$100_becomes,p05_$100_becomes,p95_$100_becomes,p(ruin<$10),note
+"D: No-filter baseline (always back favorite, p>=50%)",67,28,16.833921414750655,1.1858215824886087,147.5018048278768,147.50180482787678,147.5018048278768,0.0,
+A: Favorite-Harvest tight (90-95%),40,40,19.36962029142706,0.3201762415123669,161.16914539974226,161.16914539974226,161.1691453997423,0.0,
+B: Favorite-Harvest extreme (95-100%),59,49,18.038683825618023,0.09295869882455206,114.34316746907899,114.34316746907898,114.34316746907899,0.0,
+"C: Longshot-Buy (5-10%, contrarian control)",34,0,,,,,,,Kelly sat out: fit-set edge was <= 0 for every bet in this band
