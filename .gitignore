@@ -1,0 +1,13 @@
+# The production score file and its VERSION are live firm recommendations. They are distributed
+# privately, as a pair, and they do not belong in any repository -- this one included. Named
+# explicitly rather than relying on a blanket rule, so that adding a *.csv rule later cannot
+# silently be the only thing standing between them and a commit.
+ionic_scores_*.csv
+!ionic_scores_*_DEMO.csv
+VERSION.json
+ionic-deck-automation/scores/
+ionic-deck-automation/out/
+ionic-deck-automation/statements/
+
+__pycache__/
+*.pyc

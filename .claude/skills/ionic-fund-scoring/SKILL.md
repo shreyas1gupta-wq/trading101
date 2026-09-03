@@ -146,6 +146,16 @@ are not in place. Stop; the deck is worthless.
 `references/advisor-handover.md` has the email text and the two attachments, for when the
 desk onboards an advisor.
 
+### Preflight the pair before it builds anything
+
+`ionic-deck-automation/` (in the private `trading101` repo, drop-in for the kit's `build/`) chains
+preflight → build → all three gates into one command and answers SENDABLE or BLOCKED per statement.
+`preflight_scores.py` audits the pair on its own: VERSION agreement, one row per ISIN, the call
+vocabulary, the rationale rules, the cap, staleness, and share-class consistency.
+
+Run it on every new pair before a client deck. It is what caught defects 20 and 21, and it is the
+check the kit did not have — nothing previously looked inside the file it was handed.
+
 ## Do not reintroduce a known defect
 
 `references/defects.md` lists 19 defects and the failure each caused — a dead parser, a
