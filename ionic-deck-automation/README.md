@@ -66,3 +66,42 @@ share-class key and re-issues the pair.
 
 `--force` builds anyway. The conflict is still real, the deck still understates a call, and the
 override is recorded in the run log.
+
+## Combined decks (central only)
+
+`build_combined_review.py` handles a book holding both direct equity and funds. `build_review.py`
+is fund-only by design — it is the advisor-side kit, and a holding statement never carries the
+quantitative and analyst material the equity pages need, so it switches them off. A 60%-equity book
+therefore renders with 60% of itself missing. This runs centrally, where the stock scorecard is in
+reach, and turns those pages back on.
+
+```bash
+python build_combined_review.py --repo <ionic-scorecard clone> \
+       --holdings holdings.json --client "Family Name"
+```
+
+`holdings.json` is `{grand_inr, stocks: [[symbol, name, weight_pct]], funds: [[isin, name, weight_pct]]}`.
+Funds are given by **ISIN**, never by name — names collide (defects 13, 14) and the desk does not
+map them by similarity.
+
+Each half keeps its own source of truth and neither infers the other:
+
+| Half | Numbers | Call |
+|---|---|---|
+| Funds | `ionic_scores_<date>.csv` + `VERSION.json` | the score file, keyed on ISIN |
+| Stocks | `full750_scored_v3.csv` | `pf_qual_<SYM>.json` → `your_recommendation` |
+
+Two things it refuses to do quietly:
+
+- **No defaulted scores.** The demo builder reads `portfolio_quant.csv` and falls back to 50.0 for a
+  missing symbol. That is fine for a demo and not fine for a client — a defaulted 50 looks exactly
+  like a real one on the page. The quantitative source here is the v3 freeze, which covers the whole
+  750, and an unscored symbol is reported and left out rather than filled in.
+- **No spread residual.** Weights are of the whole book, never of a sleeve — running the
+  single-scheme cap against the fund sleeve alone would read a 6%-of-book fund as 15% and trim it
+  for breaching a cap it is nowhere near. Whatever the named rows do not account for is shown as
+  unallocated and flagged, because a book whose rows do not sum to its own total has an error in it
+  and hiding the gap is how it reaches the client.
+
+The analyst call governs where it differs from the mechanical `recommendation_v3` — Asian Paints
+scores 40.2, mechanically a Hold, and is an analyst Sell.
