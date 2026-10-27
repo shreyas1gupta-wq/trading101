@@ -254,7 +254,7 @@ th.ye, td.ye { background: var(--brand-soft); color: var(--navy); font-weight: 6
       <div class="block">
         <h3>Where 11% sits on the yield ladder</h3>
         <div class="viz" id="vLadder"></div>
-        <p class="lead">The 3 points above AAA bonds are payment for credit and liquidity risk. Our job is to find issuers where that risk is well understood and well paid.</p>
+        <p class="lead">The extra 3.5 points over 1-year AAA bonds pay for credit and liquidity risk. We look for issuers where that risk is well understood and well paid.</p>
       </div>
       <div class="block">
         <h3>What you keep, per ₹1 crore</h3>
@@ -326,7 +326,7 @@ th.ye, td.ye { background: var(--brand-soft); color: var(--navy); font-weight: 6
     </div>
 
     <div class="foot">
-      <span>Illustrations are hypothetical, assume the 11% target is achieved and are not actual, past or guaranteed returns. Tax at 30% slab plus 4% cess, excluding surcharge; your tax position may differ. AAA yield ≈ 10-yr G-Sec (7.47%) + 0.53% spread. Price impact ≈ −duration × rate change; category durations are indicative. Savings rate assumed at 2.7%; FD = 1-year rate at SBI, HDFC Bank and ICICI Bank. Data as of 26–27 Oct 2026.</span>
+      <span>Illustrations are hypothetical, assume the 11% target is achieved and are not actual, past or guaranteed returns. Tax at 30% slab plus 4% cess, excluding surcharge; your tax position may differ. 1-yr AAA yield 7.48% (ICRA Analytics / Refinitiv, 30 Sep 2026). Price impact ≈ −duration × rate change; category durations are indicative. Savings rate assumed at 2.7%; FD = 1-year rate at SBI, HDFC Bank and ICICI Bank. Data as of 26–27 Oct 2026.</span>
       <span>This document is for information only and is not an offer or solicitation. Investments in corporate bonds are subject to credit, liquidity and market risks. Read all offer and strategy documents carefully before investing.</span>
     </div>
   </div>
@@ -444,15 +444,15 @@ th.ye, td.ye { background: var(--brand-soft); color: var(--navy); font-weight: 6
     w: 360, h: 156, min: 0, max: 13, m: { t: 16, r: 6, b: 26, l: 26 }, ticks: [0, 4, 8, 12], tf: t => t + '%', gap: 0.34,
     data: [
       { l: 'Savings|a/c', v: 2.7, c: C.bar }, { l: 'RBI|repo', v: 5.5, c: C.bar }, { l: '1-yr|FD', v: 6.25, c: C.bar },
-      { l: '10-yr|G-Sec', v: 7.47, c: C.bar }, { l: 'AAA|corporate', v: 8.0, c: C.bar }, { l: 'Yield|Enhancer', v: 11, c: C.brand, vc: C.brand }],
+      { l: '10-yr|G-Sec', v: 7.47, c: C.bar }, { l: '1-yr AAA|corporate', v: 7.48, c: C.bar }, { l: 'Yield|Enhancer', v: 11, c: C.brand, vc: C.brand }],
     vf: v => (v === 11 ? '11% target' : v.toFixed(2).replace(/\.?0+$/, '') + '%'),
     extra: (Y, cx, bw) => {
       const x = cx(5) - bw / 2 + 2, xa = cx(4);
-      return `<line x1="${xa}" x2="${x}" y1="${Y(8)}" y2="${Y(8)}" stroke="${C.navy}" stroke-dasharray="2 2"/>` +
-        `<line x1="${x - 4}" x2="${x - 4}" y1="${Y(8)}" y2="${Y(11)}" stroke="${C.navy}"/>` +
-        `<text x="${x - 8}" y="${Y(10.4)}" text-anchor="end" class="an">+3 pts credit premium</text>`;
+      return `<line x1="${xa}" x2="${x}" y1="${Y(7.48)}" y2="${Y(7.48)}" stroke="${C.navy}" stroke-dasharray="2 2"/>` +
+        `<line x1="${x - 4}" x2="${x - 4}" y1="${Y(7.48)}" y2="${Y(11)}" stroke="${C.navy}"/>` +
+        `<text x="${x - 8}" y="${Y(10.4)}" text-anchor="end" class="an">+3.5 pts credit premium</text>`;
     },
-    aria: 'Yield ladder: savings 2.7%, repo 5.5%, FD 6.25%, G-Sec 7.47%, AAA 8%, Yield Enhancer 11% target'
+    aria: 'Yield ladder: savings 2.7%, repo 5.5%, FD 6.25%, 10-year G-Sec 7.47%, 1-year AAA 7.48%, Yield Enhancer 11% target'
   });
 
   // Page 2: duration sensitivity

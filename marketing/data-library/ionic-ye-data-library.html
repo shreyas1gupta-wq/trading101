@@ -1,0 +1,345 @@
+<title>Yield Enhancer Data Library</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: an asset library. Header + legend, then a gallery of fixed-size chart frames (exported as PNG), stat cards, and a filterable register of every data point. Deliberately one light look so on-screen matches the exported images. */
+:root {
+  color-scheme: light;
+  --desk: #eef0f6;
+  --paper: #ffffff;
+  --ink: #1d1f3a;
+  --ink-2: #5d5f77;
+  --line: #e2e3ec;
+  --soft: #f4f5fa;
+  --brand: #242ba1;
+  --navy: #0e113f;
+  --brand-soft: #e6edff;
+  --amber: #ffb951;
+  --amber-ink: #7a4900;
+  --amber-soft: #fff4e2;
+  --red: #e5303f;
+  --red-ink: #b51e2c;
+  --green: #08af5c;
+  --green-ink: #0a7340;
+  --f-d: "Sora", "Segoe UI", system-ui, sans-serif;
+  --f-b: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-m: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+body { background: var(--desk); color: var(--ink); font-family: var(--f-b); font-size: 14px; line-height: 1.5; }
+.wrap { max-width: 1140px; margin: 0 auto; padding-block: 36px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; grid-template-columns: minmax(0, 1fr); gap: 44px; }
+.wrap > *, section > *, .item > * { min-width: 0; }
+h1, h2, h3 { font-family: var(--f-d); color: var(--navy); margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; letter-spacing: -0.02em; }
+h2 { font-size: 22px; letter-spacing: -0.01em; }
+p { margin: 0; }
+.kicker { font-family: var(--f-m); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--brand); font-weight: 600; }
+.muted { color: var(--ink-2); }
+section { display: grid; gap: 18px; }
+.sec-head { display: grid; gap: 6px; max-width: 760px; }
+
+.top { display: grid; gap: 14px; }
+.counts { display: flex; flex-wrap: wrap; gap: 10px 28px; border-top: 2px solid var(--navy); padding-top: 12px; }
+.counts div { display: grid; }
+.counts b { font-family: var(--f-d); font-size: 26px; color: var(--navy); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.counts span { font-size: 12.5px; color: var(--ink-2); }
+.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.legend div { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font-size: 12.5px; display: grid; gap: 4px; align-content: start; }
+
+.pill { display: inline-block; font-family: var(--f-m); font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; letter-spacing: .02em; }
+.k-reported { background: #eceef6; color: #3d4060; }
+.k-market { background: var(--brand-soft); color: var(--brand); }
+.k-calc { background: #e3f6ec; color: var(--green-ink); }
+.k-hypo { background: var(--amber-soft); color: var(--amber-ink); }
+.k-assume { background: #f1f1f1; color: #555; }
+.k-eq { background: #e3f6ec; color: var(--green-ink); }
+
+/* chart frames: exported at 800x450 css px (1600x900 png) */
+.gallery { display: grid; gap: 28px; }
+.item { display: grid; gap: 8px; justify-items: start; }
+.frame { width: 800px; height: 450px; box-sizing: border-box; background: var(--paper); border: 1px solid var(--line); padding: 18px 28px 12px; display: flex; flex-direction: column; gap: 3px; }
+.fhead { display: flex; justify-content: space-between; font-family: var(--f-m); font-size: 10px; font-weight: 600; letter-spacing: .14em; color: var(--brand); }
+.frame h3 { font-size: 21px; line-height: 1.2; margin-top: 6px; }
+.fsub { font-size: 13px; color: var(--ink-2); }
+.plot { flex: 1; min-height: 0; margin-top: 4px; }
+.plot svg { width: 100%; height: 100%; display: block; }
+.fsrc { border-top: 1px solid var(--line); padding-top: 6px; display: flex; justify-content: space-between; gap: 16px; font-size: 9.5px; color: var(--ink-2); line-height: 1.35; }
+.fsrc span:last-child { white-space: nowrap; font-family: var(--f-m); }
+.meta { font-size: 12.5px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: 800px; }
+.meta code { font-family: var(--f-m); font-size: 12px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+
+/* svg text */
+.tk { font: 500 11px var(--f-m); fill: var(--ink-2); }
+.xl { font: 500 12px var(--f-b); fill: var(--ink-2); }
+.xb { font: 600 12px var(--f-b); fill: var(--navy); }
+.vl { font: 600 12px var(--f-m); fill: var(--ink); }
+.rl { font: 600 11.5px var(--f-b); }
+.gr { stroke: var(--line); stroke-width: 1; }
+.ax { stroke: #9a9cb0; stroke-width: 1; }
+
+/* stat cards: exported at 540x540 css px (1080x1080 png) */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, 540px); gap: 24px; }
+.card { width: 540px; height: 540px; box-sizing: border-box; background: var(--navy); color: #fff; padding: 40px 44px 32px; display: flex; flex-direction: column; }
+.card .cm { font-family: var(--f-m); font-size: 12px; font-weight: 600; letter-spacing: .16em; color: var(--amber); display: flex; justify-content: space-between; }
+.card .big { margin-top: auto; font-family: var(--f-d); font-weight: 700; font-size: min(88px, 16vw); line-height: 1; color: var(--amber); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.card .lab { margin-top: 18px; font-family: var(--f-d); font-weight: 600; font-size: 26px; line-height: 1.2; color: #fff; text-wrap: balance; }
+.card .ctx { margin-top: 10px; font-size: 17px; color: rgba(255,255,255,.78); line-height: 1.4; }
+.card .cs { margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.18); font-size: 12px; color: rgba(255,255,255,.6); }
+
+/* register */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters button { font: 500 12.5px var(--f-b); border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 99px; padding: 5px 12px; cursor: pointer; }
+.filters button[aria-pressed="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
+.filters button:focus-visible, .filters input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.filters input { font: 13px var(--f-b); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-width: 0; width: 220px; max-width: 100%; background: var(--paper); color: var(--ink); }
+.tbl { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 13px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--f-m); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); font-weight: 500; background: var(--soft); position: sticky; top: 0; }
+td.id { font-family: var(--f-m); font-weight: 600; color: var(--brand); white-space: nowrap; }
+td.val { font-family: var(--f-m); font-weight: 600; color: var(--navy); white-space: nowrap; }
+td.src a { color: var(--brand); }
+td .note { display: block; margin-top: 4px; font-size: 12px; color: var(--ink-2); }
+tr.theme td { background: var(--brand-soft); font-family: var(--f-d); font-weight: 600; color: var(--navy); font-size: 13px; }
+.empty { padding: 18px; color: var(--ink-2); }
+.foot { font-size: 12px; color: var(--ink-2); border-top: 1px solid var(--line); padding-top: 14px; max-width: 900px; }
+
+@media (max-width: 860px) {
+  .frame { width: 100%; height: auto; padding: 14px 14px 10px; }
+  .plot { flex: none; aspect-ratio: 744 / 300; }
+  .fsrc { flex-direction: column; gap: 4px; }
+  .cards { grid-template-columns: 1fr; }
+  .card { width: 100%; height: auto; aspect-ratio: 1 / 1; padding: 24px; }
+  .card .lab { font-size: 20px; } .card .ctx { font-size: 14px; }
+}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <span class="kicker">Ionic Yield Enhancer · Marketing data library · Data as of 27 Oct 2026</span>
+  <h1>Data points and charts for the Yield Enhancer campaign</h1>
+  <p class="muted" style="max-width:760px">Every number marketing may use, with its source, date and type, plus ready-made charts and stat cards. IDs match the PNG files and the Excel register. Ionic also sells equity strategies: equity data is shown factually, and notes flag points that are equity-positive or need balancing.</p>
+  <div class="counts" id="counts"></div>
+  <div class="legend">
+    <div><span class="pill k-reported">Reported</span>From news or aggregators. Confirm at the primary source listed before external use.</div>
+    <div><span class="pill k-market">Market data</span>From a market-data aggregator. Confirm at the primary source.</div>
+    <div><span class="pill k-calc">Ionic calculation</span>Derived by Ionic; method in the note.</div>
+    <div><span class="pill k-hypo">Hypothetical</span>Assumes the 11% target is achieved. Must be labelled as hypothetical; not actual or assured returns.</div>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head">
+    <span class="kicker">Charts</span>
+    <h2>Chart pack</h2>
+    <p class="muted">Each frame exports as a 1600 × 900 PNG with its file name shown below. The data behind every chart is in the Excel workbook so designers can restyle it.</p>
+  </div>
+  <div class="gallery" id="gallery"></div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="kicker">Stat cards</span>
+    <h2>Single-number cards</h2>
+    <p class="muted">Square 1080 × 1080 PNGs for social posts and slides.</p>
+  </div>
+  <div class="cards" id="cards"></div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="kicker">Register</span>
+    <h2>All data points</h2>
+    <p class="muted">Filter by theme or search. The same table, with source URLs and primary sources, is in the Excel workbook.</p>
+  </div>
+  <div class="filters" id="filters"></div>
+  <div class="tbl"><table>
+    <thead><tr><th>ID</th><th>Data point</th><th>Value</th><th>As of</th><th>Source</th><th>Verify at</th><th>Type</th></tr></thead>
+    <tbody id="reg"></tbody>
+  </table></div>
+</section>
+
+<p class="foot">Market figures were collected from secondary sources on 27 Oct 2026 and must be checked against the primary source on the day of publication. Nifty 50 rolling returns are built from approximate calendar-year price returns. Yield Enhancer’s 11% is a target, not an assured return. All external material needs compliance sign-off.</p>
+
+</div>
+
+<script>
+const CHARTS = [{"id": "C01", "file": "C01-nifty-2026-path", "dp": ["D01", "D02", "D03", "D04"], "type": "line", "title": "Nifty 50 in 2026: a 16% swing from peak to trough", "sub": "Record high on 5 January, low on 2 April, partial recovery since", "source": "NSE closing levels via Samco, Ziromarket, Multibagg, Outlook Money, HDFC Sky. Mid-June level approximate.", "asof": "26 Oct 2026", "pts": [[0, 26129.6], [5, 26373.2], [92, 22182.55], [166, 23632], [239, 24090.85], [272, 22716.2], [299, 22753.2]]}, {"id": "C02", "file": "C02-india-vix", "dp": ["D07"], "type": "vbar", "title": "India VIX more than doubled in 2026 before easing", "sub": "The market's expected-volatility gauge, at three points in time", "source": "NSE India VIX via Macrotrends and HDFC Sky.", "asof": "26 Oct 2026", "min": 0, "max": 36, "ticks": [0, 10, 20, 30], "dec": 2, "unit": "", "data": [["24 Dec 2025 (low)", 13.47, "mute"], ["27 Mar 2026 (peak)", 31.05, "bad"], ["26 Oct 2026", 17.41, "warn"]]}, {"id": "C03", "file": "C03-fpi-dii-flows", "dp": ["D09", "D12"], "type": "vbar", "title": "Foreign investors sold a record amount; domestic investors bought more", "sub": "Net investment in Indian equities, ₹ lakh crore", "source": "NSDL / NSE data via Business Standard and The Statesman.", "asof": "12 Oct 2026", "min": -4, "max": 8, "ticks": [-4, -2, 0, 2, 4, 6, 8], "dec": 2, "unit": "", "prefix": "₹", "suffix": " L cr", "data": [["FPI, all of 2025", -1.66, "mute"], ["FPI, Jan–Sep 2026", -3.08, "bad"], ["DII, 2026 to date", 6.83, "good"]]}, {"id": "C04", "file": "C04-cpi-vs-fd", "dp": ["D18", "D24"], "type": "vbar", "title": "Inflation has risen three months in a row", "sub": "CPI inflation vs the 1-year bank FD rate", "source": "CPI: NSO via Econolens / Finnovate. FD: SBI, HDFC Bank, ICICI Bank via Upstox.", "asof": "Sep 2026", "min": 0, "max": 7.5, "ticks": [0, 2, 4, 6], "dec": 2, "unit": "%", "data": [["Jul 2026 CPI", 4.45, "mute"], ["Aug 2026 CPI", 4.83, "mute"], ["Sep 2026 CPI", 5.54, "bad"]], "refs": [[6.25, "1-yr bank FD 6.25%", "brand"]]}, {"id": "C05", "file": "C05-rates-turned-up", "dp": ["D16", "D18", "D20", "D22"], "type": "dumbbell", "title": "Interest rates and inflation have turned up", "sub": "Earlier reading (grey) vs latest reading (blue), %", "source": "RBI; NSO; ICRA Analytics / Refinitiv via ABSL tracker; Trading Economics, Investing.com.", "asof": "23 Oct 2026", "min": 4, "max": 8, "ticks": [4, 5, 6, 7, 8], "rows": [["RBI repo rate", 5.25, "before 7 Oct", 5.5, "now"], ["CPI inflation", 4.45, "Jul", 5.54, "Sep"], ["3-yr AAA corporate yield", 7.45, "end-Aug", 7.7, "30 Sep"], ["10-yr G-Sec yield", 6.48, "52-wk low", 7.47, "23 Oct"]]}, {"id": "C06", "file": "C06-short-term-yield-ladder", "dp": ["D21", "D22", "D24", "D25", "D37"], "type": "vbar", "title": "Where an 11% target sits among short-term rates", "sub": "About 3.5 points above 1-yr AAA corporate bonds: the premium for credit and liquidity risk", "source": "RBI; RBI T-bill auction 7 Oct; ICRA Analytics / Refinitiv (30 Sep); bank rate cards. Savings rate assumed. Yield Enhancer: target, not assured.", "asof": "Oct 2026", "min": 0, "max": 12.5, "ticks": [0, 3, 6, 9, 12], "dec": 2, "unit": "%", "data": [["Savings a/c", 2.7, "mute"], ["RBI repo", 5.5, "mute"], ["1-yr bank FD", 6.25, "mute"], ["364-day T-bill", 6.29, "mute"], ["1-yr AAA bond", 7.48, "mute"], ["Yield Enhancer (target)", 11.0, "brand"]], "bracket": [4, 5, "+3.5 pts"]}, {"id": "C07", "file": "C07-rate-sensitivity", "dp": ["D38"], "type": "hbar", "title": "Price impact if interest rates rise by 1%", "sub": "Approximate change in bond price by portfolio duration", "source": "Ionic calculation: price change ≈ −duration × change in yield. Category durations are indicative.", "asof": "27 Oct 2026", "min": -12, "max": 0, "ticks": [-12, -9, -6, -3, 0], "dec": 2, "unit": "%", "labelw": 230, "rows": [["Yield Enhancer (1.25 yr)", -1.25, "brand"], ["Short-term bond fund (2.5 yr)", -2.5, "mute"], ["Corporate bond fund (4 yr)", -4.0, "mute"], ["10-yr G-Sec (6.8 yr)", -6.8, "warn"], ["Long gilt fund (10 yr)", -10.0, "warn"]]}, {"id": "C08", "file": "C08-pretax-posttax-real", "dp": ["D32", "D33", "D34"], "type": "grouped", "title": "Pre-tax, after-tax and real returns", "sub": "30% slab + 4% cess; real return = after-tax return minus 5.54% CPI", "source": "Ionic calculation. Yield Enhancer shown at its 11% target, which is not assured. Surcharge ignored.", "asof": "27 Oct 2026", "min": -2, "max": 12, "ticks": [-2, 0, 2, 4, 6, 8, 10, 12], "dec": 2, "unit": "%", "cats": ["1-yr bank FD", "1-yr AAA bond", "Yield Enhancer (11% target)"], "series": [["Pre-tax", [6.25, 7.48, 11.0], "mute"], ["After tax", [4.3, 5.15, 7.57], "brand"], ["After tax and inflation", [-1.24, -0.39, 2.03], "navy"]]}, {"id": "C09", "file": "C09-equity-horizon-range", "dp": ["D41", "D42"], "type": "range", "title": "Nifty 50: the range of returns narrows with time", "sub": "Annualised price return over rolling periods since 2008: worst to best, with median", "source": "Ionic calculation from approximate Nifty 50 calendar-year price returns, 2008–2025. Dividends add ~1–1.5 pts a year.", "asof": "2008–2025", "min": -60, "max": 85, "ticks": [-50, -25, 0, 25, 50, 75], "rows": [["1 year", -51.8, 75.8, 11.2], ["3 years", -0.0, 21.5, 10.9], ["5 years", -0.8, 16.3, 12.1], ["7 years", 4.4, 15.2, 12.1]]}, {"id": "C10", "file": "C10-topup-2026-blend", "dp": ["D43"], "type": "hbar", "title": "2026 so far: an equity portfolio with a Yield Enhancer sleeve", "sub": "Hypothetical change, 1 Jan to 26 Oct 2026", "source": "Nifty 50 price change (NSE via HDFC Sky). Yield Enhancer assumed at its 11% target, pro-rated; simple weighted blend. Not actual returns.", "asof": "26 Oct 2026", "min": -15, "max": 0, "ticks": [-15, -10, -5, 0], "dec": 1, "unit": "%", "labelw": 230, "rows": [["100% equity (Nifty 50)", -12.9, "mute"], ["80% equity + 20% Yield Enhancer", -8.6, "soft"], ["70% equity + 30% Yield Enhancer", -6.4, "brand"]]}, {"id": "C11", "file": "C11-1cr-18-months", "dp": ["D39"], "type": "hbar", "title": "₹1 crore over 18 months: gain at each rate", "sub": "Pre-tax, compounded annually", "source": "Ionic calculation. Savings rate assumed at 2.7%. Yield Enhancer at its 11% target, which is not assured.", "asof": "27 Oct 2026", "min": 0, "max": 20, "ticks": [0, 5, 10, 15, 20], "dec": 1, "unit": "", "prefix": "+₹", "suffix": " L", "labelw": 230, "rows": [["Savings account @ 2.7%", 4.1, "mute"], ["1-yr bank FD @ 6.25%", 9.5, "mute"], ["Yield Enhancer @ 11% target", 16.9, "brand"]]}, {"id": "C12", "file": "C12-pe-vs-median", "dp": ["D13", "D14", "D15"], "type": "hbar", "title": "Index valuations vs their own history", "sub": "P/E premium (+) or discount (−) to median: large and midcaps below, small caps above", "source": "NSE data via Rupeecase and indexpe.in, 6–23 Oct 2026. Nifty 50 median since Mar 2021; others 5-year median.", "asof": "Oct 2026", "min": -20, "max": 30, "ticks": [-20, -10, 0, 10, 20, 30], "dec": 1, "unit": "%", "labelw": 230, "signed": true, "rows": [["Nifty 50 (19.12× vs 22.14×)", -13.6, "brand"], ["Midcap 100 (26.63× vs 29.65×)", -10.2, "brand"], ["Midcap 150 (27.03× vs 29.56×)", -8.6, "brand"], ["MidSmallcap 400 (27.92× vs 30.09×)", -7.2, "brand"], ["Smallcap 250 (32.1× vs 28.31×)", 13.4, "amber"], ["Smallcap 50 (35.34× vs 28.18×)", 25.4, "amber"]]}, {"id": "C13", "file": "C13-years-to-double", "dp": ["D36"], "type": "vbar", "title": "Years for money to double, after tax", "sub": "At each rate after 30% slab tax + cess", "source": "Ionic calculation: ln 2 ÷ ln(1 + after-tax rate). Yield Enhancer at its 11% target, which is not assured.", "asof": "27 Oct 2026", "min": 0, "max": 40, "ticks": [0, 10, 20, 30, 40], "dec": 1, "unit": " yrs", "data": [["Savings a/c (2.7%)", 37.6, "mute"], ["1-yr bank FD (6.25%)", 16.5, "mute"], ["1-yr AAA bond (7.48%)", 13.8, "mute"], ["Yield Enhancer (11% target)", 9.5, "brand"]]}];
+const CARDS = [{"id": "S01", "file": "S01-fpi-record", "big": "₹3.08 L cr", "label": "Record foreign selling of Indian equities", "ctx": "January–September 2026, 1.9× all of 2025", "source": "NSDL via Business Standard, Oct 2026"}, {"id": "S02", "file": "S02-dii-buying", "big": "₹6.83 L cr", "label": "Bought by domestic institutions in 2026", "ctx": "More than offsetting foreign selling", "source": "NSE / NSDL via Business Standard, Oct 2026"}, {"id": "S03", "file": "S03-vix", "big": "31", "label": "India VIX peak, 27 March 2026", "ctx": "Up from 13.5 in December 2025", "source": "NSE via Macrotrends"}, {"id": "S04", "file": "S04-repo-hike", "big": "5.50%", "label": "RBI repo rate after the 7 Oct hike", "ctx": "First increase since February 2023", "source": "RBI, 7 Oct 2026"}, {"id": "S05", "file": "S05-gsec", "big": "7.47%", "label": "10-year G-Sec yield", "ctx": "Highest since March 2023", "source": "Trading Economics, 23 Oct 2026"}, {"id": "S06", "file": "S06-us-10y", "big": "5.36%", "label": "US 10-year Treasury yield peak", "ctx": "Highest since 2002, on 7 Oct 2026", "source": "Wolf Street / US Treasury"}, {"id": "S07", "file": "S07-fd-real", "big": "-1.2%", "label": "Real return on a 6.25% FD", "ctx": "After 30% slab tax and 5.54% inflation", "source": "Ionic calculation, Oct 2026"}, {"id": "S08", "file": "S08-premium-over-aaa", "big": "+3.5 pts", "label": "11% target vs the 7.48% yield on 1‑year AAA bonds", "ctx": "The premium for credit and liquidity risk. Target, not assured.", "source": "Ionic calculation; ICRA Analytics, 30 Sep 2026"}, {"id": "S09", "file": "S09-doubling", "big": "9.5 vs 16.5", "size": 68, "label": "Years to double after tax", "ctx": "11% target vs a 6.25% FD. Target, not assured.", "source": "Ionic calculation"}, {"id": "S10", "file": "S10-nifty-pe", "big": "19.1×", "label": "Nifty 50 P/E, vs a 22.1× median", "ctx": "Large caps are cheaper than their recent history", "source": "NSE, 12 Oct 2026"}];
+const DP = [{"id": "D01", "theme": "Equity markets", "text": "Nifty 50 ended 2025 at 26,129.6, up 10.5% for the year, its 10th straight year of gains.", "value": "+10.5%", "asof": "31 Dec 2025", "sources": [{"name": "Samco", "url": "https://www.samco.in/knowledge-center/articles/nifty-gains-10-51-and-nifty-bank-rises-17-15-in-calendar-year-2025/"}], "verify": "NSE", "kind": "Reported", "note": "Equity-positive context. Use alongside 2026 volatility points for balance."}, {"id": "D02", "theme": "Equity markets", "text": "Nifty 50 hit a record high of 26,373.2 on 5 Jan 2026.", "value": "26,373.2", "asof": "5 Jan 2026", "sources": [{"name": "Ziromarket", "url": "https://www.ziromarket.com/blog/nifty-50-2026-bear-phase-what-happened"}], "verify": "NSE", "kind": "Reported", "note": ""}, {"id": "D03", "theme": "Equity markets", "text": "Nifty 50 fell 15.9% from its record high to 22,182.6 on 2 Apr 2026.", "value": "−15.9%", "asof": "2 Apr 2026", "sources": [{"name": "Ziromarket", "url": "https://www.ziromarket.com/blog/nifty-50-2026-bear-phase-what-happened"}], "verify": "NSE", "kind": "Reported", "note": "Describe as a swing or volatility, not as a verdict on equity."}, {"id": "D04", "theme": "Equity markets", "text": "Nifty 50 closed at 22,753.2 on 26 Oct 2026: −12.9% in 2026 and 13.7% below its January high.", "value": "−12.9% YTD", "asof": "26 Oct 2026", "sources": [{"name": "HDFC Sky", "url": "https://hdfcsky.com/news/market-close-report-today-october-26-2026-sensex-nifty-rise-as-markets-snap-four-day-losing-streak"}], "verify": "NSE", "kind": "Reported", "note": "Factual. Pair with D01, D12 or D13 so equity is not shown one-sidedly."}, {"id": "D05", "theme": "Equity markets", "text": "Nifty 50 fell 8.7% in H1 2026, its weakest first half since 2022.", "value": "−8.7%", "asof": "30 Jun 2026", "sources": [{"name": "Multibagg", "url": "https://www.multibagg.ai/market-pulse/articles/nifty-50-h1-2026-outlook-cmr1v2pjcmd7wo20je21na6yz"}], "verify": "NSE", "kind": "Reported", "note": ""}, {"id": "D06", "theme": "Equity markets", "text": "The September 2026 Nifty F&O series settled 5.7% lower (24,090.9 to 22,716.2).", "value": "−5.7%", "asof": "29 Sep 2026", "sources": [{"name": "Outlook Money", "url": "https://www.outlookmoney.com/invest/nifty-september-derivatives-series-2026-fall-worst-in-25-years"}], "verify": "NSE", "kind": "Reported", "note": ""}, {"id": "D07", "theme": "Equity markets", "text": "India VIX rose from 13.47 (24 Dec 2025) to 31.05 (27 Mar 2026), and was 17.41 on 26 Oct 2026.", "value": "13.5 → 31.1 → 17.4", "asof": "26 Oct 2026", "sources": [{"name": "Macrotrends", "url": "https://www.macrotrends.net/2603/vix-volatility-index-historical-chart"}, {"name": "HDFC Sky", "url": "https://hdfcsky.com/news/india-vix-rises-nifty-falls-crude-oil-global-markets-october-26-2026"}], "verify": "NSE (India VIX)", "kind": "Market data", "note": "Sources disagree on the 52-week range; confirm on NSE."}, {"id": "D08", "theme": "Equity markets", "text": "Feb–Sep 2026: Nifty Smallcap 250 TRI +15.95% vs Nifty 50 TRI −8.08%. Returns have varied widely across market segments.", "value": "+15.95% vs −8.08%", "asof": "30 Sep 2026", "sources": [{"name": "5paisa", "url": "https://www.5paisa.com/blog/small-caps-outperform-nifty-50-by-24-percentage-points-in-february-september-2026"}], "verify": "NSE Indices", "kind": "Reported", "note": "Shows equity is not uniformly weak. Useful balance for equity-selling teams."}, {"id": "D09", "theme": "Flows", "text": "FPIs sold a record ₹3.08 lakh crore (~$32.7 bn) of Indian equities in Jan–Sep 2026, 1.9× the ₹1.66 lakh crore sold in all of 2025.", "value": "₹3.08 L cr", "asof": "30 Sep 2026", "sources": [{"name": "Business Standard", "url": "https://www.business-standard.com/markets/news/record-fpi-outflows-top-3-trillion-in-cy26-nearly-double-2025-tally-126101300072_1.html"}, {"name": "The Statesman", "url": "https://www.thestatesman.com/business/fpis-pull-record-rs-3-08-lakh-crore-from-indian-equities-in-2026-nearly-double-2025-outflows-1503650699.html"}], "verify": "NSDL FPI Monitor", "kind": "Reported", "note": "Totals differ slightly by NSDL cut (primary vs secondary market)."}, {"id": "D10", "theme": "Flows", "text": "March 2026 was the worst month on record for FPI equity selling, about ₹1.14–1.18 lakh crore.", "value": "~₹1.14 L cr", "asof": "31 Mar 2026", "sources": [{"name": "Multibagg", "url": "https://www.multibagg.ai/market-pulse/articles/fii-record-outflow-march-2026-cmo9q04v6ugd2ph0j3z3orgsm"}], "verify": "NSDL FPI Monitor", "kind": "Reported", "note": "Figures vary by source; quote as 'over ₹1.1 lakh crore'."}, {"id": "D11", "theme": "Flows", "text": "FPIs sold ₹35,861 crore in September and ₹47,417 crore in 1–12 October 2026.", "value": "₹47,417 cr in 12 days", "asof": "12 Oct 2026", "sources": [{"name": "Business Standard", "url": "https://www.business-standard.com/markets/news/record-fpi-outflows-top-3-trillion-in-cy26-nearly-double-2025-tally-126101300072_1.html"}], "verify": "NSDL FPI Monitor", "kind": "Reported", "note": ""}, {"id": "D12", "theme": "Flows", "text": "Domestic institutions (DIIs) bought about ₹6.83 lakh crore of Indian equities in 2026, more than offsetting FPI selling.", "value": "₹6.83 L cr", "asof": "12 Oct 2026", "sources": [{"name": "Business Standard", "url": "https://www.business-standard.com/markets/news/record-fpi-outflows-top-3-trillion-in-cy26-nearly-double-2025-tally-126101300072_1.html"}], "verify": "NSE / NSDL", "kind": "Reported", "note": "Equity-positive: domestic investors are supporting the market."}, {"id": "D13", "theme": "Valuations", "text": "Nifty 50 P/E was 19.12 on 12 Oct 2026, below its median of 22.14 since March 2021 (range 18.92–33.61).", "value": "19.1× vs 22.1×", "asof": "12 Oct 2026", "sources": [{"name": "Rupeecase (NSE data)", "url": "https://www.rupeecase.com/guides/nifty-pe-ratio"}], "verify": "NSE", "kind": "Market data", "note": "Equity-positive: large caps are cheaper than their recent history."}, {"id": "D14", "theme": "Valuations", "text": "Nifty Midcap 150 P/E 27.03 vs 5-yr median 29.56 (−9%); Midcap 100 26.63 vs 29.65 (−10%).", "value": "−9% / −10% vs median", "asof": "22 Oct 2026", "sources": [{"name": "indexpe.in", "url": "https://indexpe.in/nifty-midcap-150"}, {"name": "indexpe.in", "url": "https://indexpe.in/nifty-midcap-100"}], "verify": "NSE", "kind": "Market data", "note": "Equity-positive."}, {"id": "D15", "theme": "Valuations", "text": "Nifty Smallcap 250 P/E 32.10 vs 5-yr median 28.31 (+13%); Smallcap 50 35.34 vs 28.18 (+25%).", "value": "+13% / +25% vs median", "asof": "22 Oct 2026", "sources": [{"name": "indexpe.in", "url": "https://indexpe.in/nifty-smallcap-250"}, {"name": "indexpe.in", "url": "https://indexpe.in/nifty-smallcap-50"}], "verify": "NSE", "kind": "Market data", "note": "Internal context. Avoid in external material if Ionic is promoting smallcap strategies."}, {"id": "D16", "theme": "Rates & inflation", "text": "RBI raised the repo rate by 25 bps to 5.50% on 7 Oct 2026, its first hike since Feb 2023 (6–0 vote). SDF 5.25%, MSF 5.75%.", "value": "5.50%", "asof": "7 Oct 2026", "sources": [{"name": "SCC Online", "url": "https://www.scconline.com/blog/post/2026/10/09/rbi-hikes-repo-rate-to-5-50-percent-october-2026/"}], "verify": "RBI press release", "kind": "Reported", "note": ""}, {"id": "D17", "theme": "Rates & inflation", "text": "MPC minutes (21 Oct 2026) signal rate cuts are off the table for now. Next MPC meeting: 2–4 Dec 2026.", "value": "Cuts off the table", "asof": "21 Oct 2026", "sources": [{"name": "Corplaw Updates", "url": "https://www.corplawupdates.in/updates/rbi-mpc-minutes-october-2026-repo-rate-5-50-rate-cuts-off-table"}], "verify": "RBI MPC minutes", "kind": "Reported", "note": ""}, {"id": "D18", "theme": "Rates & inflation", "text": "CPI inflation rose to 5.54% in Sep 2026 from 4.83% (Aug) and 4.45% (Jul); food inflation 7.74%. Highest since Oct 2024.", "value": "5.54%", "asof": "Sep 2026", "sources": [{"name": "Econolens", "url": "https://www.econolens.co.in/news/india-cpi-inflation-september-2026-5-54-percent"}, {"name": "Finnovate", "url": "https://www.finnovate.in/learn/blog/india-cpi-inflation-september-2026"}], "verify": "MoSPI / NSO", "kind": "Reported", "note": ""}, {"id": "D19", "theme": "Rates & inflation", "text": "WPI inflation was 11.4% in Sep 2026, driven by energy and freight costs.", "value": "11.4%", "asof": "Sep 2026", "sources": [{"name": "Oilprice.com (Reuters)", "url": "https://oilprice.com/Latest-Energy-News/World-News/Indias-Inflation-Likely-Hit-54-in-September-as-Oil-Costs-Bite.html"}], "verify": "Office of the Economic Adviser (DPIIT)", "kind": "Reported", "note": "Verify; single secondary source."}, {"id": "D20", "theme": "Rates & inflation", "text": "India 10-yr G-Sec yield was 7.465% on 23 Oct 2026, the highest since March 2023, up ~99 bps from its 52-week low of 6.476%.", "value": "7.47%", "asof": "23 Oct 2026", "sources": [{"name": "Trading Economics", "url": "https://tradingeconomics.com/india/government-bond-yield/news/594949"}, {"name": "Investing.com", "url": "https://www.investing.com/rates-bonds/india-10-year-bond-yield-historical-data"}], "verify": "FBIL / CCIL", "kind": "Market data", "note": ""}, {"id": "D21", "theme": "Rates & inflation", "text": "364-day T-bill cut-off yield was 6.29% at the 7 Oct 2026 RBI auction (91-day 5.57%, 182-day 6.10%).", "value": "6.29%", "asof": "7 Oct 2026", "sources": [{"name": "Plutus IAS (RBI auction)", "url": "https://plutusias.com/?p=279438"}], "verify": "RBI auction results", "kind": "Reported", "note": "Single secondary source; confirm on RBI website."}, {"id": "D22", "theme": "Rates & inflation", "text": "AAA corporate bond yields on 30 Sep 2026: 1-yr 7.48%, 3-yr 7.70%, 5-yr 7.78%, 10-yr 7.83%. 3-yr AAA was 7.45% a month earlier.", "value": "1-yr AAA 7.48%", "asof": "30 Sep 2026", "sources": [{"name": "Aditya Birla Sun Life AMC fixed income tracker (ICRA Analytics / Refinitiv)", "url": "https://mutualfund.adityabirlacapital.com/-/media/knowledgecenter/pdf/all-about-market/daily-fixed-income-tracker-01-oct-2026.pdf"}], "verify": "FIMMDA / FBIL corporate bond valuation", "kind": "Market data", "note": "Seen via search summary of the tracker; confirm the PDF."}, {"id": "D23", "theme": "Rates & inflation", "text": "The 10-yr AAA corporate bond spread over the G-Sec was 0.53% on 9 Oct 2026.", "value": "0.53%", "asof": "9 Oct 2026", "sources": [{"name": "India Macro Indicators", "url": "https://indiamacroindicators.co.in/economic-indicators/10-year-credit-spread-aaa-rated-bonds-g-sec"}], "verify": "FIMMDA", "kind": "Market data", "note": ""}, {"id": "D24", "theme": "Rates & inflation", "text": "1-year fixed deposit rates for the general public at SBI, HDFC Bank and ICICI Bank are 6.25%.", "value": "6.25%", "asof": "Oct 2026", "sources": [{"name": "Upstox", "url": "https://upstox.com/news/personal-finance/investing/hdfc-bank-icici-bank-punjab-national-bank-bank-of-baroda-fixed-deposit-rates-where-they-stand-after-rbi-october-repo-rate-hike/article-201783/"}], "verify": "Bank rate cards", "kind": "Reported", "note": "Some sources show HDFC at 6.60%; check rate cards on the day."}, {"id": "D25", "theme": "Rates & inflation", "text": "Savings account rate assumed at 2.7% for comparisons.", "value": "2.7%", "asof": "—", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "Bank rate cards", "kind": "Assumption", "note": "Typical large-bank savings rate; adjust if needed."}, {"id": "D26", "theme": "Global", "text": "US 10-yr Treasury yield peaked at 5.36% on 7 Oct 2026, its highest since April 2002.", "value": "5.36%", "asof": "7 Oct 2026", "sources": [{"name": "Wolf Street", "url": "https://wolfstreet.com/2026/10/17/long-term-treasury-yields-buffeted-by-hot-inflation-and-cracks-in-ai-mania/"}], "verify": "US Treasury", "kind": "Reported", "note": ""}, {"id": "D27", "theme": "Global", "text": "The US 10-yr yield fell 19 bps to ~4.95% on 22 Oct as investors moved out of AI stocks into Treasuries.", "value": "−19 bps", "asof": "22 Oct 2026", "sources": [{"name": "24/7 Wall St", "url": "https://247wallst.com/investing/2026/10/23/the-10-year-yield-just-fell-below-5-as-investors-fled-ai-stocks/"}, {"name": "Bloomberg", "url": "https://www.bloomberg.com/news/articles/2026-10-23/ai-trade-stumbles-again-as-investors-rediscover-treasury-haven"}], "verify": "US Treasury", "kind": "Reported", "note": ""}, {"id": "D28", "theme": "Global", "text": "The Nasdaq-100 had its worst two-week drop since April 2025 (to 23 Oct 2026) as investors questioned AI revenue and spending.", "value": "Worst 2 weeks since Apr 2025", "asof": "23 Oct 2026", "sources": [{"name": "Bloomberg", "url": "https://www.bloomberg.com/news/articles/2026-10-23/ai-trade-stumbles-again-as-investors-rediscover-treasury-haven"}, {"name": "CNBC", "url": "https://www.cnbc.com/2026/10/07/stock-market-today-live-updates-.html"}], "verify": "Nasdaq", "kind": "Reported", "note": ""}, {"id": "D29", "theme": "Global", "text": "Brent crude was about $115 a barrel on 27 Oct 2026, amid US–Iran tensions.", "value": "~$115", "asof": "27 Oct 2026", "sources": [{"name": "Equentis", "url": "https://equentis.com/blog/crude-oil-prices-today-brent-falls-below-115-as-us-iran-diplomatic-efforts-raise-hopes-of-de-escalation"}, {"name": "Trading Economics", "url": "https://tradingeconomics.com/commodity/brent-crude-oil"}], "verify": "ICE Brent", "kind": "Market data", "note": "Intraday quotes vary $110–116."}, {"id": "D30", "theme": "Global", "text": "The rupee hit a record low near ₹94 per dollar in March 2026 amid high crude prices and FPI selling.", "value": "~₹94/$", "asof": "Mar 2026", "sources": [{"name": "Motilal Oswal", "url": "https://www.motilaloswal.com/news/forex/5874"}], "verify": "RBI reference rate / FBIL", "kind": "Reported", "note": "Sources differ (93.8–94.8); quote as 'around ₹94'."}, {"id": "D31", "theme": "Global", "text": "Markets price roughly 78% odds of a US Fed rate hike in December 2026; FOMC met 27–28 Oct.", "value": "~78%", "asof": "Oct 2026", "sources": [{"name": "Wolf Street", "url": "https://wolfstreet.com/2026/10/17/long-term-treasury-yields-buffeted-by-hot-inflation-and-cracks-in-ai-mania/"}], "verify": "CME FedWatch", "kind": "Reported", "note": ""}, {"id": "D32", "theme": "Returns math", "text": "A 6.25% FD keeps 4.3% after 30% slab tax + cess; after 5.54% CPI the real return is -1.24%.", "value": "-1.24%", "asof": "27 Oct 2026", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "—", "kind": "Ionic calculation", "note": "6.25 × (1 − 0.312) − 5.54. Surcharge ignored."}, {"id": "D33", "theme": "Returns math", "text": "A 1-yr AAA bond at 7.48% keeps 5.15% after tax; real return -0.39%.", "value": "-0.39%", "asof": "27 Oct 2026", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "—", "kind": "Ionic calculation", "note": ""}, {"id": "D34", "theme": "Returns math", "text": "At the 11% target, Yield Enhancer would keep 7.57% after tax; real return +2.03%.", "value": "+2.03%", "asof": "27 Oct 2026", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "—", "kind": "Hypothetical", "note": "Target, not assured."}, {"id": "D35", "theme": "Returns math", "text": "On ₹1 crore, 11% vs a 6.25% FD is ₹4.75 lakh more a year pre-tax and ₹3.27 lakh more after tax.", "value": "₹3.27 L / yr", "asof": "27 Oct 2026", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "—", "kind": "Hypothetical", "note": "Interest from bonds and FDs is taxed at slab rates."}, {"id": "D36", "theme": "Returns math", "text": "Years for money to double after tax: Yield Enhancer at 11% target 9.5; 1-yr AAA 13.8; FD 16.5; savings 37.6.", "value": "9.5 vs 16.5 yrs", "asof": "27 Oct 2026", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "—", "kind": "Hypothetical", "note": ""}, {"id": "D37", "theme": "Returns math", "text": "The 11% target is 3.52 points above the 1-yr AAA corporate yield and 4.75 points above a 1-yr FD.", "value": "+3.52 pts", "asof": "27 Oct 2026", "sources": [{"name": "Ionic calculation", "url": ""}, {"name": "Aditya Birla Sun Life AMC fixed income tracker (ICRA Analytics / Refinitiv)", "url": "https://mutualfund.adityabirlacapital.com/-/media/knowledgecenter/pdf/all-about-market/daily-fixed-income-tracker-01-oct-2026.pdf"}], "verify": "—", "kind": "Ionic calculation", "note": "Describe as the premium for credit and liquidity risk."}, {"id": "D38", "theme": "Returns math", "text": "If interest rates rise 1%, a 1.25-yr duration portfolio loses ~1.25% in price vs ~6.8% for a 10-yr G-Sec; recovered in ~1.4 vs ~11 months of carry.", "value": "−1.25% vs −6.8%", "asof": "27 Oct 2026", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "—", "kind": "Ionic calculation", "note": "Price change ≈ −duration × change in yield. Category durations indicative."}, {"id": "D39", "theme": "Returns math", "text": "₹1 crore over 18 months (pre-tax): savings +₹4.1 L, FD +₹9.5 L, Yield Enhancer at 11% target +₹16.9 L.", "value": "+₹16.9 L", "asof": "27 Oct 2026", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "—", "kind": "Hypothetical", "note": ""}, {"id": "D40", "theme": "Returns math", "text": "Every month in a savings account instead of an 11% target forgoes about ₹69,000 per ₹1 crore (pre-tax).", "value": "₹69,167 / month", "asof": "27 Oct 2026", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "—", "kind": "Hypothetical", "note": "(11% − 2.7%) ÷ 12 × ₹1 crore."}, {"id": "D41", "theme": "Equity horizon", "text": "Nifty 50 1-year returns since 2008 ranged from -51.8% to +75.8% (price).", "value": "-51.8% to +75.8%", "asof": "2008–2025", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "NSE index data", "kind": "Ionic calculation", "note": "Built from approximate calendar-year price returns; verify with NSE TRI."}, {"id": "D42", "theme": "Equity horizon", "text": "Over every 7-year period since 2008, Nifty 50 returned +4.4% to +15.2% a year, with none negative; median 12.1% (price only; dividends add ~1–1.5 pts).", "value": "+4.4% to +15.2%", "asof": "2008–2025", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "NSE index data", "kind": "Ionic calculation", "note": "Equity-positive: supports long-term equity."}, {"id": "D43", "theme": "Equity horizon", "text": "2026 to date (hypothetical): 100% equity -12.9%; with a 20% Yield Enhancer sleeve -8.6%; with 30% -6.4%.", "value": "-12.9% → -6.4%", "asof": "26 Oct 2026", "sources": [{"name": "Ionic calculation", "url": ""}, {"name": "HDFC Sky", "url": "https://hdfcsky.com/news/market-close-report-today-october-26-2026-sensex-nifty-rise-as-markets-snap-four-day-losing-streak"}], "verify": "—", "kind": "Hypothetical", "note": "Assumes 11% target pro-rated to 26 Oct; simple weighted blend."}, {"id": "D44", "theme": "Tax", "text": "Since 1 Apr 2023, gains on debt mutual funds are taxed at slab rates, and interest from bonds and FDs is always taxed at slab rates.", "value": "Slab rate", "asof": "Finance Act 2023", "sources": [{"name": "Ionic calculation", "url": ""}], "verify": "Income Tax Act (Sec 50AA)", "kind": "Reported", "note": "Capital gains on listed bonds held >12 months are taxed differently; consult a tax advisor."}];
+
+(function () {
+  const COL = { mute: '#c6c8d6', brand: '#242ba1', navy: '#0e113f', bad: '#e5303f', warn: '#f08a3c', good: '#08af5c', amber: '#ffb951', soft: '#8f96c9' };
+  const W = 744, H = 300;
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const minus = s => String(s).replace(/^-/, '−');
+  function fmt(v, c) {
+    const sign = v < 0 ? '−' : ((c.min < 0 || c.signed) && v > 0 ? '+' : '');
+    return sign + (c.prefix || '') + Math.abs(v).toFixed(c.dec ?? 1) + (c.suffix || c.unit || '');
+  }
+  function wrapLabel(t, n) {
+    const words = String(t).split(' '), lines = [''];
+    words.forEach(w => { const cur = lines[lines.length - 1]; if ((cur + ' ' + w).trim().length > n && cur) lines.push(w); else lines[lines.length - 1] = (cur + ' ' + w).trim(); });
+    return lines;
+  }
+  const svg = (s, aria) => `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">${s}</svg>`;
+
+  function vbar(c) {
+    const m = { t: 24, r: 12, b: 40, l: 46 }, ih = H - m.t - m.b, iw = W - m.l - m.r;
+    const Y = v => m.t + ih * (c.max - v) / (c.max - c.min), base = Y(Math.min(Math.max(0, c.min), c.max));
+    const n = c.data.length, bw = iw / n, w = bw * 0.56, cx = i => m.l + bw * i + bw / 2;
+    let s = '';
+    c.ticks.forEach(t => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" class="${t === 0 ? 'ax' : 'gr'}"/><text x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end" class="tk">${minus(t)}${c.unit === '%' ? '%' : ''}</text>`; });
+    c.data.forEach(([l, v, k], i) => {
+      const yv = Y(v), top = Math.min(yv, base), h = Math.max(1, Math.abs(yv - base));
+      s += `<rect x="${cx(i) - w / 2}" y="${top}" width="${w}" height="${h}" rx="2" fill="${COL[k]}"/>`;
+      s += `<text x="${cx(i)}" y="${v >= 0 ? top - 7 : top + h + 15}" text-anchor="middle" class="vl"${k === 'brand' ? ` style="fill:${COL.brand}"` : k === 'bad' ? ' style="fill:#b51e2c"' : ''}>${fmt(v, c)}</text>`;
+      wrapLabel(l, Math.max(10, Math.floor(bw / 7))).forEach((ln, j) => { s += `<text x="${cx(i)}" y="${H - m.b + 17 + j * 14}" text-anchor="middle" class="${k === 'brand' ? 'xb' : 'xl'}">${esc(ln)}</text>`; });
+    });
+    (c.refs || []).forEach(([v, lab, k]) => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${COL[k]}" stroke-width="2" stroke-dasharray="6 4"/><text x="${m.l + 6}" y="${Y(v) - 6}" class="rl" style="fill:${COL[k]}">${esc(lab)}</text>`; });
+    if (c.bracket) {
+      const [a, b, lab] = c.bracket, xa = cx(a), xb = cx(b) - w / 2 - 8, va = c.data[a][1], vb = c.data[b][1];
+      s += `<line x1="${xa + w / 2}" x2="${xb}" y1="${Y(va)}" y2="${Y(va)}" stroke="${COL.navy}" stroke-dasharray="3 3"/>`;
+      s += `<line x1="${xb}" x2="${xb}" y1="${Y(va)}" y2="${Y(vb)}" stroke="${COL.navy}" stroke-width="1.5"/>`;
+      s += `<line x1="${xb - 4}" x2="${xb + 4}" y1="${Y(vb)}" y2="${Y(vb)}" stroke="${COL.navy}" stroke-width="1.5"/><line x1="${xb - 4}" x2="${xb + 4}" y1="${Y(va)}" y2="${Y(va)}" stroke="${COL.navy}" stroke-width="1.5"/>`;
+      s += `<text x="${xb - 8}" y="${Y((va + vb) / 2 + 0.9)}" text-anchor="end" class="rl" style="fill:${COL.navy}">${esc(lab)}</text>`;
+    }
+    return svg(s, c.title);
+  }
+
+  function hbar(c) {
+    const m = { t: 8, r: 80, b: 28, l: c.labelw || 200 }, iw = W - m.l - m.r, ih = H - m.t - m.b, n = c.rows.length, rh = ih / n;
+    const X = v => m.l + iw * (v - c.min) / (c.max - c.min), x0 = X(Math.min(Math.max(0, c.min), c.max));
+    let s = '';
+    c.ticks.forEach(t => { s += `<line x1="${X(t)}" x2="${X(t)}" y1="${m.t}" y2="${H - m.b}" class="${t === 0 ? 'ax' : 'gr'}"/><text x="${X(t)}" y="${H - 8}" text-anchor="middle" class="tk">${(c.signed && t > 0 ? '+' : '') + minus(t)}${c.unit === '%' ? '%' : ''}</text>`; });
+    c.rows.forEach(([l, v, k], i) => {
+      const bh = Math.min(30, rh * 0.56), y = m.t + rh * i + (rh - bh) / 2, x1 = X(v);
+      s += `<text x="${m.l - 12}" y="${y + bh / 2 + 4}" text-anchor="end" class="${k === 'brand' ? 'xb' : 'xl'}">${esc(l)}</text>`;
+      s += `<rect x="${Math.min(x0, x1)}" y="${y}" width="${Math.max(1, Math.abs(x1 - x0))}" height="${bh}" rx="2" fill="${COL[k]}"/>`;
+      s += `<text x="${v < 0 ? x1 - 7 : x1 + 7}" y="${y + bh / 2 + 4}" text-anchor="${v < 0 ? 'end' : 'start'}" class="vl"${k === 'brand' ? ` style="fill:${COL.brand}"` : ''}>${fmt(v, c)}</text>`;
+    });
+    return svg(s, c.title);
+  }
+
+  function grouped(c) {
+    const m = { t: 34, r: 12, b: 40, l: 46 }, ih = H - m.t - m.b, iw = W - m.l - m.r;
+    const Y = v => m.t + ih * (c.max - v) / (c.max - c.min), base = Y(0);
+    const gw = iw / c.cats.length, k = c.series.length, bw = gw * 0.66 / k;
+    let s = '';
+    c.ticks.forEach(t => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" class="${t === 0 ? 'ax' : 'gr'}"/><text x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end" class="tk">${minus(t)}%</text>`; });
+    c.cats.forEach((cat, i) => {
+      const gx = m.l + gw * i + gw * 0.17;
+      c.series.forEach(([name, vals, col], j) => {
+        const v = vals[i], yv = Y(v), top = Math.min(yv, base), h = Math.max(1, Math.abs(yv - base)), x = gx + bw * j;
+        const fill = v < 0 && j === k - 1 ? COL.bad : (v > 0 && j === k - 1 ? COL.good : COL[col]);
+        s += `<rect x="${x + 2}" y="${top}" width="${bw - 4}" height="${h}" rx="2" fill="${fill}"/>`;
+        s += `<text x="${x + bw / 2}" y="${v >= 0 ? top - 6 : top + h + 14}" text-anchor="middle" class="vl" style="font-size:11px${v < 0 ? ';fill:#b51e2c' : ''}">${(v > 0 && j === k - 1 ? '+' : '') + minus(v.toFixed(2))}%</text>`;
+      });
+      s += `<text x="${m.l + gw * i + gw / 2}" y="${H - m.b + 18}" text-anchor="middle" class="${i === c.cats.length - 1 ? 'xb' : 'xl'}">${esc(cat)}</text>`;
+    });
+    let lx = W - m.r;
+    [...c.series].reverse().forEach(([name, , col], j) => {
+      const isLast = j === 0, wtxt = name.length * 6.6 + 22; lx -= wtxt;
+      s += `<rect x="${lx}" y="6" width="12" height="12" rx="2" fill="${isLast ? COL.good : COL[col]}"/><text x="${lx + 17}" y="16" class="xl">${esc(name)}</text>`;
+    });
+    return svg(s, c.title);
+  }
+
+  function dumbbell(c) {
+    const m = { t: 4, r: 20, b: 26, l: 20 }, iw = W - m.l - m.r, ih = H - m.t - m.b, n = c.rows.length, rh = ih / n;
+    const lo = 3.5, hi = 8.6, X = v => m.l + iw * (v - lo) / (hi - lo);
+    let s = '';
+    c.ticks.forEach(t => { s += `<line x1="${X(t)}" x2="${X(t)}" y1="${m.t}" y2="${H - m.b}" class="gr"/><text x="${X(t)}" y="${H - 8}" text-anchor="middle" class="tk">${t}%</text>`; });
+    c.rows.forEach(([l, a, al, b, bl], i) => {
+      const y0 = m.t + rh * i, y = y0 + rh * 0.66;
+      s += `<text x="${m.l}" y="${y0 + 20}" class="xb">${esc(l)}</text>`;
+      s += `<line x1="${X(a)}" x2="${X(b)}" y1="${y}" y2="${y}" stroke="${COL.soft}" stroke-width="4" stroke-linecap="round"/>`;
+      s += `<circle cx="${X(a)}" cy="${y}" r="7" fill="${COL.mute}" stroke="#fff" stroke-width="2"/><circle cx="${X(b)}" cy="${y}" r="8" fill="${COL.brand}" stroke="#fff" stroke-width="2"/>`;
+      s += `<text x="${X(a) - 13}" y="${y + 4}" text-anchor="end" class="vl" style="fill:#5d5f77">${a.toFixed(2)}% <tspan class="xl" style="font-size:11px">${esc(al)}</tspan></text>`;
+      s += `<text x="${X(b) + 14}" y="${y + 4}" class="vl" style="fill:${COL.brand}">${b.toFixed(2)}% <tspan class="xl" style="font-size:11px">${esc(bl)}</tspan></text>`;
+    });
+    return svg(s, c.title);
+  }
+
+  function range(c) {
+    const m = { t: 22, r: 70, b: 30, l: 50 }, ih = H - m.t - m.b, iw = W - m.l - m.r;
+    const Y = v => m.t + ih * (c.max - v) / (c.max - c.min), n = c.rows.length, bw = iw / n, w = bw * 0.3;
+    const f = v => (v > 0.05 ? '+' : v < -0.05 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
+    let s = '';
+    c.ticks.forEach(t => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" class="${t === 0 ? 'ax' : 'gr'}"/><text x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end" class="tk">${minus(t)}%</text>`; });
+    c.rows.forEach(([l, lo, hi, med], i) => {
+      const cx = m.l + bw * i + bw / 2;
+      s += `<rect x="${cx - w / 2}" y="${Y(hi)}" width="${w}" height="${Y(lo) - Y(hi)}" rx="3" fill="${i === 0 ? '#b9bdd3' : COL.soft}"/>`;
+      s += `<line x1="${cx - w / 2 - 6}" x2="${cx + w / 2 + 6}" y1="${Y(med)}" y2="${Y(med)}" stroke="${COL.navy}" stroke-width="3"/>`;
+      s += `<text x="${cx + w / 2 + 10}" y="${Y(med) + 4}" class="xl" style="font-size:11px">median ${f(med)}</text>`;
+      s += `<text x="${cx}" y="${Y(hi) - 7}" text-anchor="middle" class="vl">${f(hi)}</text>`;
+      s += `<text x="${cx}" y="${Y(lo) + 16}" text-anchor="middle" class="vl"${lo < 0 ? ' style="fill:#b51e2c"' : ''}>${f(lo)}</text>`;
+      s += `<text x="${cx}" y="${H - 8}" text-anchor="middle" class="xb">${esc(l)}</text>`;
+    });
+    return svg(s, c.title);
+  }
+
+  function line(c) {
+    const m = { t: 30, r: 24, b: 30, l: 60 }, iw = W - m.l - m.r, ih = H - m.t - m.b, lo = 21500, hi = 26900;
+    const X = d => m.l + iw * d / 300, Y = v => m.t + ih * (hi - v) / (hi - lo), nf = v => Math.round(v).toLocaleString('en-IN');
+    const P = c.pts, path = P.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
+    let s = '';
+    [22000, 23000, 24000, 25000, 26000].forEach(t => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" class="gr"/><text x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end" class="tk">${nf(t)}</text>`; });
+    'Jan Feb Mar Apr May Jun Jul Aug Sep Oct'.split(' ').forEach((mo, i) => { const d = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273][i]; s += `<text x="${X(d)}" y="${H - 8}" text-anchor="${i ? 'middle' : 'start'}" class="tk">${mo}</text>`; });
+    s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(26129.6)}" y2="${Y(26129.6)}" stroke="#9a9cb0" stroke-dasharray="5 4"/><text x="${W - m.r}" y="${Y(26129.6) - 6}" text-anchor="end" class="xl" style="font-size:11px">2025 close 26,130</text>`;
+    s += `<path d="${path} L${X(299)} ${H - m.b} L${X(0)} ${H - m.b} Z" fill="${COL.brand}" fill-opacity="0.07"/><path d="${path}" fill="none" stroke="${COL.brand}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    s += `<circle cx="${X(5)}" cy="${Y(26373.2)}" r="5" fill="${COL.brand}"/><text x="${X(5) + 10}" y="${Y(26373.2) - 8}" class="vl">26,373 record high, 5 Jan</text>`;
+    s += `<circle cx="${X(92)}" cy="${Y(22182.55)}" r="5" fill="${COL.bad}"/><text x="${X(92)}" y="${Y(22182.55) + 22}" text-anchor="middle" class="vl" style="fill:#b51e2c">22,183 low, 2 Apr (−15.9%)</text>`;
+    s += `<circle cx="${X(299)}" cy="${Y(22753.2)}" r="5" fill="${COL.navy}"/><text x="${X(299)}" y="${Y(22753.2) + 24}" text-anchor="end" class="vl">22,753 on 26 Oct</text>`;
+    return svg(s, c.title);
+  }
+
+  const R = { vbar, hbar, grouped, dumbbell, range, line };
+  document.getElementById('gallery').innerHTML = CHARTS.map(c => `
+    <div class="item">
+      <div class="frame" data-file="${c.file}">
+        <div class="fhead"><span>IONIC · YIELD ENHANCER DATA</span><span>${c.id}</span></div>
+        <h3>${esc(c.title)}</h3>
+        <div class="fsub">${esc(c.sub)}</div>
+        <div class="plot">${R[c.type](c)}</div>
+        <div class="fsrc"><span>Source: ${esc(c.source)}</span><span>As of ${esc(c.asof)}</span></div>
+      </div>
+      <div class="meta"><code>${c.file}.png</code><span>Data points: ${c.dp.map(d => `<a href="#${d}">${d}</a>`).join(', ')}</span></div>
+    </div>`).join('');
+
+  document.getElementById('cards').innerHTML = CARDS.map(c => `
+    <div class="card" data-file="${c.file}">
+      <div class="cm"><span>IONIC · YIELD ENHANCER DATA</span><span>${c.id}</span></div>
+      <div class="big"${c.size ? ` style="font-size:min(${c.size}px, 14vw)"` : ''}>${esc(minus(c.big))}</div>
+      <div class="lab">${esc(c.label)}</div>
+      <div class="ctx">${esc(c.ctx)}</div>
+      <div class="cs">Source: ${esc(c.source)}</div>
+    </div>`).join('');
+
+  const kcls = { 'Reported': 'k-reported', 'Market data': 'k-market', 'Ionic calculation': 'k-calc', 'Hypothetical': 'k-hypo', 'Assumption': 'k-assume' };
+  const themes = [...new Set(DP.map(d => d.theme))];
+  document.getElementById('counts').innerHTML = [[DP.length, 'data points'], [CHARTS.length, 'charts (1600 × 900)'], [CARDS.length, 'stat cards (1080 × 1080)'], [themes.length, 'themes']]
+    .map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('');
+
+  let theme = 'All', q = '';
+  const filters = document.getElementById('filters');
+  filters.innerHTML = ['All', ...themes].map(t => `<button type="button" data-t="${esc(t)}" aria-pressed="${t === 'All'}">${esc(t)}</button>`).join('') +
+    '<input id="q" type="search" placeholder="Search data points" aria-label="Search data points">';
+  filters.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; theme = b.dataset.t; filters.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); draw(); });
+  document.getElementById('q').addEventListener('input', e => { q = e.target.value.toLowerCase(); draw(); });
+
+  function draw() {
+    const rows = DP.filter(d => (theme === 'All' || d.theme === theme) && (!q || (d.id + d.text + d.value + d.note).toLowerCase().includes(q)));
+    let html = '', last = '';
+    rows.forEach(d => {
+      if (d.theme !== last) { html += `<tr class="theme"><td colspan="7">${esc(d.theme)}</td></tr>`; last = d.theme; }
+      const eq = /equity-positive/i.test(d.note) ? ' <span class="pill k-eq">Equity-positive</span>' : '';
+      html += `<tr id="${d.id}"><td class="id">${d.id}</td><td>${esc(d.text)}${eq}${d.note ? `<span class="note">${esc(d.note)}</span>` : ''}</td><td class="val">${esc(d.value)}</td><td>${esc(d.asof)}</td>` +
+        `<td class="src">${d.sources.map(s => s.url ? `<a href="${s.url}" target="_blank" rel="noopener">${esc(s.name)}</a>` : esc(s.name)).join('<br>')}</td><td>${esc(d.verify)}</td><td><span class="pill ${kcls[d.kind] || ''}">${esc(d.kind)}</span></td></tr>`;
+    });
+    document.getElementById('reg').innerHTML = html || '<tr><td colspan="7" class="empty">No data points match. Clear the search or pick another theme.</td></tr>';
+  }
+  draw();
+})();
+</script>
