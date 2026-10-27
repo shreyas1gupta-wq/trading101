@@ -1,0 +1,287 @@
+<title>Why Now: Yield Enhancer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: two A4 sheets. Page 1 = fund manager's view (two paragraphs) + rates chart. Page 2 = evidence charts in a two-column grid. One light print look by choice. */
+:root {
+  color-scheme: light;
+  --desk: #e7e8ef;
+  --paper: #ffffff;
+  --ink: #1d1f3a;
+  --ink-2: #5d5f77;
+  --line: #e2e3ec;
+  --soft: #f4f5fa;
+  --brand: #242ba1;
+  --navy: #0e113f;
+  --brand-soft: #e6edff;
+  --amber: #ffb951;
+  --amber-ink: #7a4900;
+  --red-ink: #b51e2c;
+  --green-ink: #0a7340;
+  --f-d: "Sora", "Segoe UI", system-ui, sans-serif;
+  --f-b: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-m: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+body { background: var(--desk); color: var(--ink); font-family: var(--f-b); font-size: 12px; line-height: 1.5; }
+.desk { padding-block: 28px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; justify-content: center; }
+.page { width: 794px; height: 1123px; background: var(--paper); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 1px 2px rgba(14,17,63,.10), 0 10px 30px rgba(14,17,63,.08); }
+.bar { background: var(--navy); color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 36px; font-family: var(--f-m); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; }
+.bar .mark { font-family: var(--f-d); font-weight: 700; font-size: 12.5px; letter-spacing: .16em; }
+.bar .mark span { color: var(--amber); font-weight: 600; letter-spacing: .08em; margin-left: 8px; font-size: 10.5px; }
+.bar .meta { color: rgba(255,255,255,.72); }
+.sheet { padding: 22px 36px 16px; display: flex; flex-direction: column; gap: 16px; flex: 1; min-height: 0; }
+.sheet > * { flex-shrink: 0; }
+
+h1, h2, h3 { font-family: var(--f-d); margin: 0; color: var(--navy); text-wrap: balance; }
+h1 { font-size: 30px; line-height: 1.1; letter-spacing: -0.02em; }
+h1 em { font-style: normal; color: var(--brand); }
+h3 { font-size: 13px; line-height: 1.3; font-weight: 600; }
+p { margin: 0; }
+.kicker { font-family: var(--f-m); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--brand); font-weight: 600; }
+.cap { font-size: 9.3px; color: var(--ink-2); line-height: 1.4; }
+
+.view { display: grid; gap: 12px; }
+.view p { font-size: 13.5px; line-height: 1.62; color: var(--ink); max-width: 100%; }
+.view p::first-line { font-weight: 500; }
+.sign { font-size: 11px; color: var(--ink-2); font-style: italic; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 2px solid var(--navy); border-bottom: 1px solid var(--line); }
+.kpi { padding: 10px 12px 10px 0; display: grid; gap: 2px; align-content: start; }
+.kpi + .kpi { padding-left: 12px; border-left: 1px solid var(--line); }
+.kpi .v { font-family: var(--f-d); font-weight: 700; font-size: 23px; line-height: 1.1; color: var(--navy); font-variant-numeric: tabular-nums; }
+.kpi .k { font-size: 10.5px; color: var(--ink-2); line-height: 1.35; }
+.kpi.hl .v { color: var(--brand); }
+
+.chart { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.chart .lead { font-size: 10.8px; color: var(--ink-2); }
+.viz svg { display: block; width: 100%; height: auto; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.g2 > * { min-width: 0; }
+
+table { border-collapse: collapse; width: 100%; font-size: 11px; }
+th, td { padding: 6px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+th { font-family: var(--f-m); font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); font-weight: 500; }
+td.r, th.r { text-align: right; font-family: var(--f-m); font-variant-numeric: tabular-nums; }
+th.ye, td.ye { background: var(--brand-soft); color: var(--navy); font-weight: 600; }
+.neg { color: var(--red-ink); } .pos { color: var(--green-ink); }
+.tbl { overflow-x: auto; }
+
+.foot { margin-top: auto; border-top: 1px solid var(--line); padding-top: 8px; font-size: 8.3px; color: var(--ink-2); line-height: 1.42; display: grid; gap: 3px; }
+
+.tk { font: 500 9.5px var(--f-m); fill: var(--ink-2); }
+.xl { font: 500 10.5px var(--f-b); fill: var(--ink-2); }
+.xb { font: 600 10.5px var(--f-b); fill: var(--navy); }
+.vl { font: 600 10.5px var(--f-m); fill: var(--ink); }
+.rl { font: 600 10px var(--f-b); }
+.gr { stroke: var(--line); stroke-width: 1; }
+.ax { stroke: #9a9cb0; stroke-width: 1; }
+
+@media (max-width: 840px) {
+  .desk { justify-content: stretch; gap: 16px; }
+  .page { width: auto; height: auto; }
+  .bar { padding: 10px 14px; flex-wrap: wrap; }
+  .sheet { padding: 16px 14px; }
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .kpi:nth-child(3) { padding-left: 0; border-left: 0; }
+  .g2 { grid-template-columns: 1fr; }
+  h1 { font-size: 25px; }
+}
+@media print {
+  @page { size: A4; margin: 0; }
+  body { background: #fff; }
+  .desk { padding: 0; gap: 0; display: block; }
+  .page { width: 210mm; height: 297mm; box-shadow: none; break-after: page; }
+  .page:last-child { break-after: auto; }
+}
+</style>
+
+<div class="desk">
+
+<article class="page" aria-label="Page 1">
+  <div class="bar"><span class="mark">IONIC<span>Yield Enhancer</span></span><span class="meta">Investment view · October 2026 · 1 / 2</span></div>
+  <div class="sheet">
+    <div class="view">
+      <span class="kicker">From the investment desk</span>
+      <h1>Why now is a good time for <em>Ionic Yield Enhancer</em></h1>
+      <p>2026 has reminded investors that markets rarely move in straight lines. The Nifty 50 swung 16% from its January high to its April low, foreign investors withdrew a record ₹3.08 lakh crore, and the AI-led rally in global markets has begun to wobble, with the US 10-year yield touching its highest level since 2002. At home, the rate-cut cycle has ended. CPI inflation climbed from 4.45% to 5.54% in two months, the RBI raised the repo rate to 5.50% on 7 October, and the 10-year G-Sec now yields 7.47%, its highest since March 2023. Headline equity valuations look reasonable, but the typical stock does not: the median BSE 500 company was still priced at about 33 times trailing earnings at the last published count, roughly one and a half times the index multiple, and small-cap indices trade 13–25% above their own five-year median valuations. In this setting we believe part of every portfolio should earn its return from contracted cash flows rather than from markets re-rating.</p>
+      <p>This is where short-term corporate bonds earn their place. Ionic Yield Enhancer targets 11% a year from issuer-by-issuer researched corporate bonds held at a 1–1.5 year duration, about 3.5 points above 1-year AAA bonds and 4.75 points above a bank FD. That short duration matters in a year when rates are rising: a further 1% rise in yields would cost the portfolio roughly 1.25% in price, which coupon income recovers in about six weeks, against a near-7% hit for a 10-year government bond. As holdings mature every few months, we reinvest at the higher yields now available. The strategy also steadies a portfolio through uncertain markets: an investor who held 30% in it at its target return this year would have seen a −12.9% equity drawdown narrow to about −6.4%. We see it as a complement to long-term equity, not a replacement: the part of the portfolio that keeps compounding while markets find their footing.</p>
+      <span class="sign">Ionic Yield Enhancer · Investment Team</span>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><span class="v">5.54%</span><span class="k">CPI inflation in Sep, up from 4.45% in Jul</span></div>
+      <div class="kpi"><span class="v">7.47%</span><span class="k">10-yr G-Sec yield, highest since Mar 2023</span></div>
+      <div class="kpi"><span class="v">~33×</span><span class="k">P/E of the median BSE 500 stock vs ~22× for the index</span></div>
+      <div class="kpi hl"><span class="v">11% p.a.</span><span class="k">Yield Enhancer target, 1–1.5 yr duration</span></div>
+    </div>
+
+    <div class="chart">
+      <h3>Interest rates and inflation have turned up</h3>
+      <div class="viz" id="vRates"></div>
+      <p class="lead">Earlier reading (grey) vs latest reading (blue). Every measure has moved higher in the last three months, and the RBI’s minutes signal no cuts for now.</p>
+    </div>
+
+    <div class="foot">
+      <span>Data as of 27 Oct 2026. Sources: RBI; NSO (CPI); ICRA Analytics / Refinitiv via ABSL AMC tracker (AAA yields, 30 Sep); Trading Economics, Investing.com (G-Sec); NSDL via Business Standard (FPI flows); Wolf Street (US yields); Banyantree Advisors (median BSE 500 P/E, Jan 2026 newsletter, latest published); indexpe.in / NSE (index P/E).</span>
+    </div>
+  </div>
+</article>
+
+<article class="page" aria-label="Page 2">
+  <div class="bar"><span class="mark">IONIC<span>Yield Enhancer</span></span><span class="meta">The evidence · 2 / 2</span></div>
+  <div class="sheet">
+
+    <div class="g2">
+      <div class="chart">
+        <h3>Price impact if interest rates rise by 1%</h3>
+        <div class="viz" id="vDur"></div>
+        <p class="lead">Short duration keeps price swings small. A 1.25-year portfolio earns back a 1% rate shock in about six weeks of coupon.</p>
+      </div>
+      <div class="chart">
+        <h3>A hedge for uncertainty: 2026 so far</h3>
+        <div class="viz" id="vBlend"></div>
+        <p class="lead">An equity portfolio with and without a Yield Enhancer (YE) sleeve. Hypothetical: Nifty 50 price change to 26 Oct, YE at its 11% target pro-rated.</p>
+      </div>
+    </div>
+
+    <div class="chart">
+      <h3>Valuations: the typical stock is far pricier than the headline index</h3>
+      <div class="viz" id="vVal"></div>
+      <p class="lead">Trailing P/E (bars) against each index’s own 5-year median (tick). The median BSE 500 stock trades at about 1.5× the Nifty 500 multiple, and small caps sit 13–25% above their medians, leaving little room for error if earnings disappoint. *Latest published reading, Jan 2026.</p>
+    </div>
+
+    <div class="g2">
+      <div class="chart">
+        <h3>Where the 11% target sits among short-term rates</h3>
+        <div class="viz" id="vLadder"></div>
+        <p class="lead">The extra 3.5 points over 1-year AAA bonds is the premium for credit and liquidity risk, which we earn through issuer-level due diligence.</p>
+      </div>
+      <div class="chart">
+        <h3>What you keep, per ₹1 crore a year</h3>
+        <div class="tbl">
+          <table>
+            <thead><tr><th></th><th class="r">1-yr FD</th><th class="r">1-yr AAA</th><th class="r ye">Yield Enhancer</th></tr></thead>
+            <tbody>
+              <tr><td>Pre-tax return</td><td class="r">6.25%</td><td class="r">7.48%</td><td class="r ye">11.00%</td></tr>
+              <tr><td>After tax (30% + cess)</td><td class="r">4.30%</td><td class="r">5.15%</td><td class="r ye">7.57%</td></tr>
+              <tr><td>After tax and 5.54% CPI</td><td class="r neg">−1.24%</td><td class="r neg">−0.39%</td><td class="r ye pos">+2.03%</td></tr>
+              <tr><td>Income after tax</td><td class="r">₹4.30 L</td><td class="r">₹5.15 L</td><td class="r ye">₹7.57 L</td></tr>
+              <tr><td>Years to double, after tax</td><td class="r">16.5</td><td class="r">13.8</td><td class="r ye">9.5</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lead">Interest from bonds and FDs is taxed at slab rates, so the pre-tax gap carries through to what you keep.</p>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span>Yield Enhancer’s 11% is a target, not an assured return; illustrations assume it is achieved and are not actual or past performance. Price impact ≈ −duration × change in yield; category durations are indicative. Tax at 30% slab + 4% cess, excluding surcharge. Median BSE 500 P/E is Banyantree Advisors’ latest published reading (Jan 2026; it was 43.7× in Sep 2024 and 39.6× in Jul 2025); index P/Es are Oct 2026 (NSE via indexpe.in, Rupeecase). 1-yr AAA 7.48% (ICRA Analytics / Refinitiv, 30 Sep); 364-day T-bill 6.29% (RBI auction, 7 Oct); FD = 1-year rate at SBI, HDFC Bank, ICICI Bank; savings rate assumed at 2.7%.</span>
+      <span>This document is for information only and is not an offer or solicitation. Investments in corporate bonds are subject to credit, liquidity and market risks. Read all offer and strategy documents carefully before investing.</span>
+    </div>
+  </div>
+</article>
+
+</div>
+
+<script>
+(function () {
+  const C = { mute: '#c6c8d6', soft: '#8f96c9', brand: '#242ba1', navy: '#0e113f', red: '#e5303f', redInk: '#b51e2c', orange: '#f08a3c', amber: '#ffb951', amberInk: '#7a4900', ink2: '#5d5f77' };
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const neg = v => (v < 0 ? '−' : '') + Math.abs(v);
+  const put = (id, W, H, aria, s) => { document.getElementById(id).innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">${s}</svg>`; };
+
+  // Page 1: rates and inflation, earlier vs latest
+  (function () {
+    const W = 722, H = 272, m = { t: 4, r: 16, b: 24, l: 16 }, lo = 3.6, hi = 8.5;
+    const X = v => m.l + (W - m.l - m.r) * (v - lo) / (hi - lo);
+    const rows = [['RBI repo rate', 5.25, 'before 7 Oct', 5.50, 'now'], ['CPI inflation', 4.45, 'Jul', 5.54, 'Sep'],
+      ['3-yr AAA corporate bond yield', 7.45, 'end-Aug', 7.70, '30 Sep'], ['10-yr G-Sec yield', 6.48, '52-wk low', 7.47, '23 Oct']];
+    const rh = (H - m.t - m.b) / rows.length;
+    let s = '';
+    [4, 5, 6, 7, 8].forEach(t => { s += `<line x1="${X(t)}" x2="${X(t)}" y1="${m.t}" y2="${H - m.b}" class="gr"/><text x="${X(t)}" y="${H - 6}" text-anchor="middle" class="tk">${t}%</text>`; });
+    rows.forEach(([l, a, al, b, bl], i) => {
+      const y0 = m.t + rh * i, y = y0 + rh * 0.66;
+      s += `<text x="${m.l}" y="${y0 + 13}" class="xb">${esc(l)}</text>`;
+      s += `<line x1="${X(a)}" x2="${X(b)}" y1="${y}" y2="${y}" stroke="${C.soft}" stroke-width="4" stroke-linecap="round"/>`;
+      s += `<circle cx="${X(a)}" cy="${y}" r="6" fill="${C.mute}" stroke="#fff" stroke-width="2"/><circle cx="${X(b)}" cy="${y}" r="7" fill="${C.brand}" stroke="#fff" stroke-width="2"/>`;
+      s += `<text x="${X(a) - 11}" y="${y + 4}" text-anchor="end" class="vl" style="fill:${C.ink2}">${a.toFixed(2)}% <tspan class="xl" style="font-size:9.5px">${esc(al)}</tspan></text>`;
+      s += `<text x="${X(b) + 12}" y="${y + 4}" class="vl" style="fill:${C.brand}">${b.toFixed(2)}% <tspan class="xl" style="font-size:9.5px">${esc(bl)}</tspan></text>`;
+    });
+    put('vRates', W, H, 'Repo 5.25 to 5.50, CPI 4.45 to 5.54, 3-year AAA 7.45 to 7.70, 10-year G-Sec 6.48 to 7.47 percent', s);
+  })();
+
+  function hbar(id, o) {
+    const W = o.w, H = o.h, m = Object.assign({ t: 4, r: 52, b: 18, l: 150 }, o.m || {});
+    const iw = W - m.l - m.r, ih = H - m.t - m.b, rh = ih / o.rows.length;
+    const X = v => m.l + iw * (v - o.min) / (o.max - o.min), x0 = X(Math.min(Math.max(0, o.min), o.max));
+    let s = '';
+    o.ticks.forEach(t => { s += `<line x1="${X(t)}" x2="${X(t)}" y1="${m.t}" y2="${H - m.b}" class="${t === 0 ? 'ax' : 'gr'}"/><text x="${X(t)}" y="${H - 5}" text-anchor="middle" class="tk">${o.tf(t)}</text>`; });
+    o.rows.forEach(([l, v, k, bold], i) => {
+      const bh = Math.min(22, rh * 0.58), y = m.t + rh * i + (rh - bh) / 2, x1 = X(v);
+      s += `<text x="${m.l - 9}" y="${y + bh / 2 + 4}" text-anchor="end" class="${bold ? 'xb' : 'xl'}">${esc(l)}</text>`;
+      s += `<rect x="${Math.min(x0, x1)}" y="${y}" width="${Math.max(1, Math.abs(x1 - x0))}" height="${bh}" rx="2" fill="${C[k]}"/>`;
+      s += `<text x="${v < 0 ? x1 - 6 : x1 + 6}" y="${y + bh / 2 + 4}" text-anchor="${v < 0 ? 'end' : 'start'}" class="vl"${bold ? ` style="fill:${C.brand}"` : ''}>${o.vf(v)}</text>`;
+    });
+    put(id, W, H, o.aria, s);
+  }
+
+  hbar('vDur', { w: 349, h: 208, min: -12.5, max: 0, ticks: [-12, -8, -4, 0], tf: t => neg(t) + '%', vf: v => neg(v.toFixed(2)) + '%', m: { l: 140, r: 8 },
+    rows: [['Yield Enhancer (1.25 yr)', -1.25, 'brand', true], ['Short-term fund (2.5 yr)', -2.5, 'mute'], ['Corp bond fund (4 yr)', -4, 'mute'],
+      ['10-yr G-Sec (6.8 yr)', -6.8, 'orange'], ['Long gilt fund (10 yr)', -10, 'orange']],
+    aria: 'Price impact of a 1% rate rise: Yield Enhancer minus 1.25%, 10-year G-Sec minus 6.8%, long gilt fund minus 10%' });
+
+  hbar('vBlend', { w: 349, h: 208, min: -20, max: 0, ticks: [-20, -15, -10, -5, 0], tf: t => neg(t) + '%', vf: v => neg(v.toFixed(1)) + '%', m: { l: 140, r: 8 },
+    rows: [['100% equity (Nifty 50)', -12.9, 'mute'], ['80% equity + 20% YE', -8.6, 'soft'], ['70% equity + 30% YE', -6.4, 'brand', true]],
+    aria: '2026 to date: all equity minus 12.9%, with a 20% Yield Enhancer sleeve minus 8.6%, with 30% minus 6.4%' });
+
+  // Valuations: P/E bars with 5-year median ticks
+  (function () {
+    const W = 722, H = 236, m = { t: 6, r: 120, b: 20, l: 210 }, lo = 0, hi = 46;
+    const iw = W - m.l - m.r, X = v => m.l + iw * (v - lo) / (hi - lo);
+    const rows = [
+      ['Nifty Smallcap 50', 35.34, 28.18, null], ['Median BSE 500 stock*', 33.1, null, 43.7], ['Nifty Smallcap 250', 32.10, 28.31, null],
+      ['Nifty Midcap 150', 27.03, 29.56, null], ['Nifty 500 index', 21.56, 23.66, null], ['Nifty 50 index', 19.12, 22.14, null]];
+    const rh = (H - m.t - m.b) / rows.length;
+    let s = '';
+    [0, 10, 20, 30, 40].forEach(t => { s += `<line x1="${X(t)}" x2="${X(t)}" y1="${m.t}" y2="${H - m.b}" class="${t === 0 ? 'ax' : 'gr'}"/><text x="${X(t)}" y="${H - 5}" text-anchor="middle" class="tk">${t}×</text>`; });
+    rows.forEach(([l, pe, med, prev], i) => {
+      const bh = 18, y = m.t + rh * i + (rh - bh) / 2, cy = y + bh / 2;
+      const rich = med === null || pe > med, fill = med === null ? C.orange : rich ? C.amber : C.mute;
+      s += `<text x="${m.l - 10}" y="${cy + 4}" text-anchor="end" class="${med === null ? 'xb' : 'xl'}">${esc(l)}</text>`;
+      s += `<rect x="${X(0)}" y="${y}" width="${X(pe) - X(0)}" height="${bh}" rx="2" fill="${fill}"/>`;
+      if (med !== null) s += `<line x1="${X(med)}" x2="${X(med)}" y1="${y - 4}" y2="${y + bh + 4}" stroke="${C.navy}" stroke-width="2.5"/>`;
+      if (prev !== null) {
+        s += `<text x="${X(pe) + 7}" y="${cy + 4}" class="vl">${pe.toFixed(1)}×</text>`;
+        s += `<line x1="${X(pe) + 46}" x2="${X(prev) - 7}" y1="${cy}" y2="${cy}" stroke="${C.navy}" stroke-dasharray="2 2"/><circle cx="${X(prev)}" cy="${cy}" r="5" fill="#fff" stroke="${C.navy}" stroke-width="1.5"/>`;
+        s += `<text x="${X(prev) + 10}" y="${cy + 4}" class="xl" style="font-size:9.5px;fill:${C.amberInk}">Sep 2024: ${prev}×</text>`;
+      } else {
+        const end = Math.max(X(pe), X(med));
+        const d = Math.round((pe / med - 1) * 100);
+        s += `<text x="${end + 9}" y="${cy + 4}" class="vl">${pe.toFixed(1)}× <tspan class="xl" style="font-size:9.5px;fill:${rich ? C.amberInk : C.ink2}">${d > 0 ? '+' : '−'}${Math.abs(d)}% vs median</tspan></text>`;
+      }
+    });
+    put('vVal', W, H, 'Trailing P/E: Smallcap 50 35.3x, median BSE 500 stock 33.1x, Smallcap 250 32.1x, Midcap 150 27.0x, Nifty 500 21.6x, Nifty 50 19.1x', s);
+  })();
+
+  // Yield ladder
+  (function () {
+    const W = 349, H = 232, m = { t: 16, r: 4, b: 46, l: 30 }, max = 12.5;
+    const ih = H - m.t - m.b, iw = W - m.l - m.r, Y = v => m.t + ih * (max - v) / max;
+    const d = [[['Savings', 'a/c'], 2.7], [['RBI', 'repo'], 5.5], [['1-yr', 'FD'], 6.25], [['364-day', 'T-bill'], 6.29], [['1-yr AAA', 'bond'], 7.48], [['Yield', 'Enhancer', '(target)'], 11]];
+    const bw = iw / d.length, w = bw * 0.6, cx = i => m.l + bw * i + bw / 2;
+    let s = '';
+    [0, 4, 8, 12].forEach(t => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" class="${t ? 'gr' : 'ax'}"/><text x="${m.l - 5}" y="${Y(t) + 3}" text-anchor="end" class="tk">${t}%</text>`; });
+    d.forEach(([l, v], i) => {
+      const ye = i === d.length - 1;
+      s += `<rect x="${cx(i) - w / 2}" y="${Y(v)}" width="${w}" height="${Y(0) - Y(v)}" rx="2" fill="${ye ? C.brand : C.mute}"/>`;
+      s += `<text x="${cx(i)}" y="${Y(v) - 5}" text-anchor="middle" class="vl" style="font-size:9.5px${ye ? ';fill:' + C.brand : ''}">${v.toFixed(2).replace(/0$/, '')}%</text>`;
+      l.forEach((ln, j) => { s += `<text x="${cx(i)}" y="${H - m.b + 13 + j * 11}" text-anchor="middle" class="${ye ? 'xb' : 'xl'}" style="font-size:9.5px">${esc(ln)}</text>`; });
+    });
+    const xa = cx(4) + w / 2, xb = cx(5) - w / 2 - 6;
+    s += `<line x1="${xa}" x2="${xb}" y1="${Y(7.48)}" y2="${Y(7.48)}" stroke="${C.navy}" stroke-dasharray="2 2"/><line x1="${xb}" x2="${xb}" y1="${Y(7.48)}" y2="${Y(11)}" stroke="${C.navy}" stroke-width="1.4"/>`;
+    s += `<text x="${xb - 5}" y="${Y(10.2)}" text-anchor="end" class="rl" style="fill:${C.navy}">+3.5 pts</text>`;
+    put('vLadder', W, H, 'Savings 2.7%, repo 5.5%, FD 6.25%, T-bill 6.29%, 1-year AAA 7.48%, Yield Enhancer 11% target', s);
+  })();
+})();
+</script>
