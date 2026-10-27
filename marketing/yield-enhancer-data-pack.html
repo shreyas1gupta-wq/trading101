@@ -1,0 +1,547 @@
+<title>Yield Enhancer Campaign Pack</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single reading column of numbered evidence "exhibits", each a claim + chart + table, closing with the campaign playbook. Colors from the Ionic design system. */
+:root {
+  --bg: #f9f9f6;          /* background-app-bg */
+  --surface: #ffffff;
+  --surface-2: #f2f2ed;
+  --ink: #2b2b3b;         /* content-primary */
+  --ink-2: #717183;       /* content-secondary */
+  --line: #e0e0ea;
+  --brand: #242ba1;       /* Ionic core blue */
+  --brand-soft: #e0e9ff;
+  --amber: #ffb951;       /* secondary */
+  --amber-ink: #855000;
+  --amber-soft: #fff5e5;
+  --good: #08af5c;
+  --good-ink: #0b6b3a;
+  --bad: #e02d3d;
+  --bad-soft: #fff5f5;
+  --muted-bar: #c8c8d0;
+  --f-display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b0d1c; --surface: #12152b; --surface-2: #191d38; --ink: #ebebf0; --ink-2: #a3a3b8; --line: #2a2e4d;
+  --brand: #7ba0ff; --brand-soft: #1b2250; --amber: #ffb951; --amber-ink: #ffcf87; --amber-soft: #2a2213;
+  --good: #3ccf86; --good-ink: #6fe0a6; --bad: #ff6b78; --bad-soft: #2b1418; --muted-bar: #4a4e6a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0b0d1c; --surface: #12152b; --surface-2: #191d38; --ink: #ebebf0; --ink-2: #a3a3b8; --line: #2a2e4d;
+  --brand: #7ba0ff; --brand-soft: #1b2250; --amber: #ffb951; --amber-ink: #ffcf87; --amber-soft: #2a2213;
+  --good: #3ccf86; --good-ink: #6fe0a6; --bad: #ff6b78; --bad-soft: #2b1418; --muted-bar: #4a4e6a; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 64px; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.1; font-weight: 700; }
+h2 { font-size: clamp(22px, 3vw, 28px); line-height: 1.2; font-weight: 600; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-family: var(--f-data); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.num { font-variant-numeric: tabular-nums; font-family: var(--f-data); }
+section { display: grid; gap: 18px; }
+.lede { font-size: 17px; color: var(--ink-2); }
+
+/* hero */
+.hero { display: grid; gap: 22px; padding-block: 8px; }
+.hero h1 em { font-style: normal; color: var(--brand); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 4px; align-content: start; }
+.tile .v { font-family: var(--f-display); font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tile .k { font-size: 13px; color: var(--ink-2); }
+.v.bad { color: var(--bad); } .v.good { color: var(--good-ink); } .v.brand { color: var(--brand); }
+.tile.feature { background: var(--brand); border-color: var(--brand); }
+.tile.feature .v, .tile.feature .k { color: #fff; }
+:root[data-theme="dark"] .tile.feature .v, :root[data-theme="dark"] .tile.feature .k { color: #0b0d1c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tile.feature .v, :root:not([data-theme="light"]) .tile.feature .k { color: #0b0d1c; } }
+
+/* exhibits */
+.ex-head { display: grid; gap: 6px; }
+.ex-tag { font-family: var(--f-data); font-size: 12px; color: var(--brand); letter-spacing: 0.06em; text-transform: uppercase; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.grid2 > * { min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.chart { position: relative; height: 280px; }
+.chart.tall { height: 340px; }
+.cap { font-size: 12.5px; color: var(--ink-2); }
+.so-what { background: var(--amber-soft); border-radius: 8px; padding: 12px 14px; font-size: 14.5px; }
+.so-what b { color: var(--amber-ink); }
+
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--f-data); font-size: 11.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2); font-weight: 500; }
+td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--f-data); }
+tr.hl td { background: var(--brand-soft); font-weight: 600; }
+.pos { color: var(--good-ink); } .neg { color: var(--bad); }
+
+.pill { display: inline-block; font-family: var(--f-data); font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+.pill.warn { background: var(--amber-soft); color: var(--amber-ink); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+
+/* playbook */
+.hooks { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.hook { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 8px; align-content: start; }
+.hook .line { font-family: var(--f-display); font-size: 18px; font-weight: 600; line-height: 1.3; }
+.hook .who { font-size: 12.5px; color: var(--ink-2); }
+ul.clean { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 72ch; }
+.guard { border: 1px solid var(--line); border-left: 0; border-radius: 10px; background: var(--surface); padding: 16px; display: grid; gap: 10px; }
+.do-dont { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.sources { font-size: 12.5px; color: var(--ink-2); }
+.sources ol { padding-left: 18px; display: grid; gap: 4px; margin: 0; }
+.sources a { color: var(--brand); word-break: break-word; }
+.note { font-size: 12.5px; color: var(--ink-2); border-top: 1px solid var(--line); padding-top: 14px; }
+a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Ionic Yield Enhancer · Campaign data pack · Data as of 26–27 Oct 2026</div>
+  <h1>Markets are guessing. <em>Your money doesn’t have to.</em></h1>
+  <p class="lede">The evidence base for promoting a 1–1.5 year duration, due-diligence-led short-term corporate bond strategy with a 10–12% target return, at a time when equities are falling, foreign money is leaving, AI trades are cracking and interest rates are moving up again.</p>
+  <div class="tiles">
+    <div class="tile"><span class="v bad num">−12.9%</span><span class="k">Nifty 50 in 2026 so far (26,130 → 22,753)</span></div>
+    <div class="tile"><span class="v bad num">₹3.08 L cr</span><span class="k">Record FPI equity selling, Jan–Sep 2026. 1.9× all of 2025</span></div>
+    <div class="tile"><span class="v num">7.47%</span><span class="k">India 10Y G-Sec, highest since Mar 2023. RBI hiked to 5.50%</span></div>
+    <div class="tile"><span class="v bad num">−1.2%</span><span class="k">Real return on a 6.25% FD after 31.2% tax and 5.54% CPI</span></div>
+    <div class="tile feature"><span class="v num">10–12%</span><span class="k">Yield Enhancer target CAGR, 1–1.5 yr duration (target, not assured)</span></div>
+  </div>
+</header>
+
+<!-- 1 -->
+<section>
+  <div class="ex-head">
+    <span class="ex-tag">Exhibit 1 · Equity volatility</span>
+    <h2>The Nifty has spent ten months going nowhere but down</h2>
+    <p>A record high on 5 January, a 16% fall by 2 April, a partial recovery, then another leg down. An investor who entered on 1 January needs a <b class="num">+14.8%</b> rally just to get back to zero.</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>Nifty 50 milestones, 2026</h3>
+      <div class="chart"><canvas id="cNifty" aria-label="Nifty 50 path through 2026"></canvas></div>
+      <div class="cap">Closing/settlement levels at reported milestones. Mid-June level approximate.</div>
+    </div>
+    <div class="panel">
+      <h3>India VIX (fear gauge)</h3>
+      <div class="chart"><canvas id="cVix" aria-label="India VIX readings"></canvas></div>
+      <div class="cap">VIX more than doubled from its Dec-2025 low to a 31 peak in March; still ~29% above the low today.</div>
+    </div>
+  </div>
+  <div class="tbl panel">
+    <table>
+      <thead><tr><th>Metric</th><th class="r">Level</th><th class="r">Change</th><th>Date</th></tr></thead>
+      <tbody>
+        <tr><td>Nifty 50 close, 31 Dec 2025</td><td class="r">26,129.6</td><td class="r">—</td><td>31 Dec 2025</td></tr>
+        <tr><td>Record high</td><td class="r">26,373.2</td><td class="r pos">+0.9%</td><td>5 Jan 2026</td></tr>
+        <tr><td>Trough</td><td class="r">22,182.6</td><td class="r neg">−15.9% from peak</td><td>2 Apr 2026</td></tr>
+        <tr><td>Latest close</td><td class="r">22,753.2</td><td class="r neg">−12.9% YTD · −13.7% from peak</td><td>26 Oct 2026</td></tr>
+        <tr><td>Sept F&amp;O series</td><td class="r">22,716.2</td><td class="r neg">−5.7% in one month</td><td>29 Sep 2026</td></tr>
+        <tr><td>Rally needed to recover YTD loss</td><td class="r">—</td><td class="r">+14.8%</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 2 -->
+<section>
+  <div class="ex-head">
+    <span class="ex-tag">Exhibit 2 · Money flows</span>
+    <h2>Foreign investors are selling at a record pace</h2>
+    <p>FPIs pulled more out of Indian equities in nine months of 2026 than in any full calendar year on record, and the selling accelerated again in October.</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>FPI net equity outflow (₹ crore)</h3>
+      <div class="chart"><canvas id="cFpi" aria-label="FPI outflows"></canvas></div>
+      <div class="cap">Source: NSDL data via Business Standard / The Statesman. Cuts differ across outlets.</div>
+    </div>
+    <div class="panel">
+      <h3>What it means for an investor</h3>
+      <ul class="clean">
+        <li><b>Who is selling:</b> global funds reacting to US yields above 5%, $115 crude and a weaker rupee.</li>
+        <li><b>Who is holding the market up:</b> DIIs (₹6.83 lakh cr bought in CY26). Prices are being supported by SIP flows, not by earnings upgrades.</li>
+        <li><b>October so far:</b> ₹47,417 cr out in just 12 days. Sep was ₹35,861 cr.</li>
+        <li><b>Worst month on record:</b> March 2026, ~₹1.14 lakh cr.</li>
+      </ul>
+      <div class="so-what"><b>Campaign use:</b> “When the world’s biggest investors are stepping back, your core money deserves an anchor.”</div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section>
+  <div class="ex-head">
+    <span class="ex-tag">Exhibit 3 · Rates and inflation</span>
+    <h2>The rate-cut cycle is over. Yields are at multi-year highs.</h2>
+    <p>India’s RBI made its first hike since Feb 2023 on 7 October as CPI rose for a third straight month and wholesale inflation hit 11.4%. MPC minutes signal cuts are “off the table”. For a lender, that means higher yields to lock in. For a long-bond holder, it means price losses.</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>CPI inflation is climbing back</h3>
+      <div class="chart"><canvas id="cCpi" aria-label="CPI inflation"></canvas></div>
+      <div class="cap">Headline CPI, NSO. Food inflation was 7.74% in September.</div>
+    </div>
+    <div class="panel tbl">
+      <h3>Rate dashboard</h3>
+      <table>
+        <thead><tr><th>Rate</th><th class="r">Now</th><th class="r">Earlier</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>RBI repo</td><td class="r">5.50%</td><td class="r">5.25%</td><td>Hike, 7 Oct 2026</td></tr>
+          <tr><td>India 10Y G-Sec</td><td class="r">7.47%</td><td class="r">6.48%</td><td>52-wk low → now, ~+100 bps</td></tr>
+          <tr><td>AAA spread over 10Y</td><td class="r">~0.53%</td><td class="r">—</td><td>Implies AAA ≈ 8.0%</td></tr>
+          <tr><td>US 10Y Treasury</td><td class="r">~4.95–5.0%</td><td class="r">5.36% peak</td><td>Peak 7 Oct: highest since 2002</td></tr>
+          <tr><td>CPI (India)</td><td class="r">5.54%</td><td class="r">4.45% (Jul)</td><td>Highest since Oct 2024</td></tr>
+          <tr><td>WPI (India)</td><td class="r">11.4%</td><td class="r">—</td><td>Sep 2026</td></tr>
+          <tr><td>Brent crude</td><td class="r">~$115</td><td class="r">—</td><td>US–Iran tensions</td></tr>
+          <tr><td>1-yr bank FD (SBI / HDFC / ICICI)</td><td class="r">6.25%</td><td class="r">—</td><td>General public</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section>
+  <div class="ex-head">
+    <span class="ex-tag">Exhibit 4 · Why short duration</span>
+    <h2>Rising rates hurt long bonds. A 1–1.5 year book barely feels them.</h2>
+    <p>Bond prices fall roughly by <i>duration × rise in yield</i>. In 2026 the 10Y G-Sec yield rose about 100 bps from its low. A 1.25-year portfolio absorbs that in about a month of coupon, and its maturing bonds get reinvested at the new, higher yields.</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>Price impact of a +1% rise in yields</h3>
+      <div class="chart"><canvas id="cDur" aria-label="Duration sensitivity"></canvas></div>
+      <div class="cap">Approximation: % price change ≈ −modified duration × Δyield. Durations and fund yields are indicative category levels, not specific funds.</div>
+    </div>
+    <div class="panel tbl">
+      <h3>Months of carry needed to recover a +1% yield shock</h3>
+      <table>
+        <thead><tr><th>Holding</th><th class="r">Duration</th><th class="r">Price hit</th><th class="r">Yield</th><th class="r">Months to recover</th></tr></thead>
+        <tbody>
+          <tr class="hl"><td>Yield Enhancer (target)</td><td class="r">1.25</td><td class="r neg">−1.25%</td><td class="r">11%</td><td class="r">~1.4</td></tr>
+          <tr><td>Short-term AAA fund</td><td class="r">2.5</td><td class="r neg">−2.5%</td><td class="r">7.8%</td><td class="r">~3.8</td></tr>
+          <tr><td>Corporate bond fund</td><td class="r">4.0</td><td class="r neg">−4.0%</td><td class="r">7.9%</td><td class="r">~6.1</td></tr>
+          <tr><td>10Y G-Sec</td><td class="r">6.8</td><td class="r neg">−6.8%</td><td class="r">7.47%</td><td class="r">~10.9</td></tr>
+          <tr><td>Long-duration gilt fund</td><td class="r">10.0</td><td class="r neg">−10.0%</td><td class="r">7.5%</td><td class="r">~16.0</td></tr>
+        </tbody>
+      </table>
+      <div class="so-what"><b>Message:</b> “Rising rates are a headwind for long bonds and a tailwind for short ones. We roll over at higher yields every few months.”</div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section>
+  <div class="ex-head">
+    <span class="ex-tag">Exhibit 5 · The yield ladder</span>
+    <h2>After tax and inflation, an FD is now losing money</h2>
+    <p>Since April 2023, debt fund gains and bond interest are taxed at slab rate, the same as FD interest. So the gross yield gap carries straight through to post-tax returns. At the 30% slab (31.2% with cess) and 5.54% CPI:</p>
+  </div>
+  <div class="panel">
+    <div class="chart tall"><canvas id="cLadder" aria-label="Pre-tax, post-tax and real returns"></canvas></div>
+    <div class="cap">Yield Enhancer shown at the 11% midpoint of its 10–12% target. Real = post-tax return − Sept 2026 CPI. Surcharge ignored; at higher surcharge the gap widens further.</div>
+  </div>
+  <div class="panel tbl">
+    <table>
+      <thead><tr><th>Option</th><th class="r">Pre-tax</th><th class="r">Post-tax (31.2%)</th><th class="r">Real, post-tax</th><th>Main risk</th></tr></thead>
+      <tbody>
+        <tr><td>Savings account</td><td class="r">2.70%</td><td class="r">1.86%</td><td class="r neg">−3.68%</td><td>Inflation</td></tr>
+        <tr><td>1-yr bank FD</td><td class="r">6.25%</td><td class="r">4.30%</td><td class="r neg">−1.24%</td><td>Inflation, reinvestment</td></tr>
+        <tr><td>AAA corporate bond (~10Y)</td><td class="r">8.00%</td><td class="r">5.50%</td><td class="r neg">−0.04%</td><td>Rate risk (long duration)</td></tr>
+        <tr class="hl"><td>Yield Enhancer @ 10%</td><td class="r">10.00%</td><td class="r">6.88%</td><td class="r pos">+1.34%</td><td>Credit, liquidity</td></tr>
+        <tr class="hl"><td>Yield Enhancer @ 12%</td><td class="r">12.00%</td><td class="r">8.26%</td><td class="r pos">+2.72%</td><td>Credit, liquidity</td></tr>
+        <tr><td>Nifty 50, 2026 YTD</td><td class="r neg">−12.9%</td><td class="r">—</td><td class="r neg">—</td><td>Market risk</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 6 -->
+<section>
+  <div class="ex-head">
+    <span class="ex-tag">Exhibit 6 · Predictability</span>
+    <h2>Equity’s average looks great. The year you need the money may not.</h2>
+    <p>In 8 of the last 18 calendar years the Nifty 50 returned less than 10% (price return), and in 3 it lost money. 2026 is on track to be the 4th. A 10–12% target band sits where equity lands less than half the time in any single year.</p>
+  </div>
+  <div class="panel">
+    <div class="chart tall"><canvas id="cCal" aria-label="Nifty calendar-year returns vs target band"></canvas></div>
+    <div class="cap">Nifty 50 price-return by calendar year (approximate; dividends add ~1–1.5 pts). Amber band = Yield Enhancer 10–12% target. 2026 = YTD to 26 Oct.</div>
+  </div>
+  <div class="grid2">
+    <div class="panel tbl">
+      <table>
+        <thead><tr><th>Nifty 50, 2008–2025</th><th class="r">Years</th><th class="r">Share</th></tr></thead>
+        <tbody>
+          <tr><td>Above 12%</td><td class="r">8</td><td class="r">44%</td></tr>
+          <tr><td>10–12% (target band)</td><td class="r">2</td><td class="r">11%</td></tr>
+          <tr><td>0–10%</td><td class="r">5</td><td class="r">28%</td></tr>
+          <tr><td>Negative</td><td class="r">3</td><td class="r">17%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="so-what" style="align-self:start"><b>Use this honestly:</b> equity wins over long periods, so do not pitch this as an equity replacement. Pitch it as the <i>predictable</i> sleeve: money with a 1–2 year job (a house payment, business capital, a child’s fee, the equity “dry powder” waiting for a better entry).</div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section>
+  <div class="ex-head">
+    <span class="ex-tag">Exhibit 7 · Valuations and AI</span>
+    <h2>Where valuation risk really sits: smallcaps and the global AI trade</h2>
+    <p>Be precise here. The Nifty 50 is actually <b>cheap</b> versus its history (19.1× vs 22.1× median), so “Indian markets are overvalued” is not a defensible claim. The stretch is in smallcaps and in US AI stocks, where the cracks are now showing.</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>P/E vs 5-year median</h3>
+      <div class="chart"><canvas id="cPe" aria-label="P/E premium to median"></canvas></div>
+      <div class="cap">indexpe.in / NSE, 6–23 Oct 2026. Positive = expensive vs own history.</div>
+    </div>
+    <div class="panel tbl">
+      <h3>The AI and global-rates shock</h3>
+      <table>
+        <tbody>
+          <tr><td>US 10Y peak, 7 Oct</td><td class="r">5.36%</td><td><span class="pill bad">Highest since 2002</span></td></tr>
+          <tr><td>Nasdaq-100, to 23 Oct</td><td class="r">2 wks</td><td><span class="pill bad">Worst 2-week drop since Apr 2025</span></td></tr>
+          <tr><td>US 10Y, 22 Oct</td><td class="r">−19 bps</td><td><span class="pill warn">Money fled AI into Treasuries</span></td></tr>
+          <tr><td>Trigger, 7 Oct</td><td class="r">—</td><td><span class="pill warn">OpenAI revenue setback</span></td></tr>
+          <tr><td>Indian IT (26 Oct)</td><td class="r">—</td><td><span class="pill warn">Infosys, HCL Tech lead falls</span></td></tr>
+          <tr><td>Fed / PCE</td><td class="r">27–29 Oct</td><td><span class="pill">Dec hike odds ~78%</span></td></tr>
+        </tbody>
+      </table>
+      <div class="so-what"><b>Message:</b> “Nobody knows if AI is a bubble. A bond that pays you its coupon doesn’t need to know.”</div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section>
+  <div class="ex-head">
+    <span class="ex-tag">Exhibit 8 · Illustration</span>
+    <h2>₹1 crore on 1 January 2026, three ways</h2>
+    <p>Hypothetical, to show the scale of the difference over ~10 months. The Yield Enhancer line uses its target rate, not actual results.</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <div class="chart"><canvas id="cIllus" aria-label="Value of 1 crore by 26 Oct 2026"></canvas></div>
+    </div>
+    <div class="panel tbl">
+      <table>
+        <thead><tr><th>Where</th><th class="r">Value on 26 Oct</th><th class="r">Gain / loss</th></tr></thead>
+        <tbody>
+          <tr><td>Nifty 50 (price)</td><td class="r">₹87.1 L</td><td class="r neg">−₹12.9 L</td></tr>
+          <tr><td>1-yr FD @ 6.25%</td><td class="r">₹1.051 cr</td><td class="r pos">+₹5.1 L</td></tr>
+          <tr class="hl"><td>Yield Enhancer @ 10% target</td><td class="r">₹1.081 cr</td><td class="r pos">+₹8.1 L</td></tr>
+          <tr class="hl"><td>Yield Enhancer @ 12% target</td><td class="r">₹1.097 cr</td><td class="r pos">+₹9.7 L</td></tr>
+        </tbody>
+      </table>
+      <div class="cap">Gap between equity and the 11% target midpoint: ~₹21.8 lakh on ₹1 crore. Must be labelled “hypothetical; not actual performance” in any external use.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section>
+  <div class="ex-head">
+    <span class="ex-tag">Campaign playbook</span>
+    <h2>Five angles, each tied to an audience and a data point</h2>
+  </div>
+  <div class="hooks">
+    <div class="hook"><span class="pill">FD-heavy investors, retirees</span><div class="line">“Your FD earned 6.25%. After tax and inflation, it lost 1.2%.”</div><span class="who">Proof: Exhibit 5. CTA: post-tax return calculator.</span></div>
+    <div class="hook"><span class="pill">Equity-heavy HNIs</span><div class="line">“The Nifty is down 13% this year. What part of your portfolio still has a plan?”</div><span class="who">Proof: Exhibits 1 and 6. CTA: portfolio stability review.</span></div>
+    <div class="hook"><span class="pill">Business owners, treasury</span><div class="line">“Surplus cash with a 12–18 month horizon shouldn’t ride a 31-VIX market.”</div><span class="who">Proof: Exhibits 1 and 4. CTA: treasury parking note.</span></div>
+    <div class="hook"><span class="pill">Rate-aware investors</span><div class="line">“Rates just turned up. Short bonds reset higher every few months; long bonds take the hit.”</div><span class="who">Proof: Exhibits 3 and 4. CTA: duration explainer.</span></div>
+    <div class="hook"><span class="pill">Waiting-to-buy investors</span><div class="line">“Waiting for a better entry into equities? Get paid 10–12% target while you wait.”</div><span class="who">Proof: Exhibits 2 and 7. CTA: STP / phased-entry plan.</span></div>
+    <div class="hook"><span class="pill">AI / tech-exposed NRIs</span><div class="line">“AI might change the world. Your coupon doesn’t need it to.”</div><span class="who">Proof: Exhibit 7. CTA: global diversification call.</span></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel tbl">
+      <h3>Suggested 4-week rollout</h3>
+      <table>
+        <thead><tr><th>Week</th><th>Theme</th><th>Formats</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td>“The volatile year” (Exh. 1, 2)</td><td>LinkedIn carousel, RM WhatsApp note, 60-sec reel</td></tr>
+          <tr><td class="num">2</td><td>“Rates turned” (Exh. 3, 4)</td><td>CIO video, blog on duration, email</td></tr>
+          <tr><td class="num">3</td><td>“The FD math” (Exh. 5, 8)</td><td>Interactive calculator, infographic, webinar</td></tr>
+          <tr><td class="num">4</td><td>“How we pick bonds” (diligence)</td><td>Process explainer, case study, client events</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h3>Proof points Ionic should add (data we don’t have yet)</h3>
+      <ul class="clean">
+        <li>Portfolio rating mix (AAA / AA / A / BBB / unrated) and average rating</li>
+        <li>Number of issuers, max single-issuer and group exposure, sector caps</li>
+        <li>Current portfolio YTM, average maturity, modified duration</li>
+        <li>Diligence funnel: deals screened vs approved (e.g. “1 in 8 issuers pass”)</li>
+        <li>Security cover, covenants, escrow structures used</li>
+        <li>Track record: defaults/delays to date, realised returns since launch</li>
+        <li>Liquidity terms: lock-in, exit load, redemption timelines</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section>
+  <div class="ex-head">
+    <span class="ex-tag">Guardrails</span>
+    <h2>Say this carefully</h2>
+    <p>A 10–12% target in 1–1.5 year paper is well above AAA (~8%) and FD (6.25%) rates. That premium is payment for credit and liquidity risk, typically A-category or structured paper (indicative 9.5–11.5%+ before this year’s ~100 bps rise in G-Sec yields). Clients who remember IL&amp;FS (2018), DHFL (2019) and the 2020 Franklin Templeton debt-fund wind-up will ask. Lead with the diligence story and the campaign holds up.</p>
+  </div>
+  <div class="do-dont">
+    <div class="panel"><h3 class="pos">Say</h3>
+      <ul class="clean">
+        <li>“Target return of 10–12% p.a.; returns are not assured.”</li>
+        <li>“Lower interest-rate sensitivity than long-duration bonds.”</li>
+        <li>“Predictable cash flows from coupons and maturities.”</li>
+        <li>“Credit selected through [N]-step due diligence.”</li>
+      </ul></div>
+    <div class="panel"><h3 class="neg">Avoid</h3>
+      <ul class="clean">
+        <li>“Safe”, “guaranteed”, “assured”, “FD-like”, “risk-free”</li>
+        <li>Comparing to FDs without noting FDs carry DICGC cover up to ₹5 lakh</li>
+        <li>Showing target returns as if they were past performance</li>
+        <li>“Indian markets are overvalued” (Nifty 50 P/E is below median)</li>
+      </ul></div>
+    <div class="panel"><h3>Before anything goes out</h3>
+      <ul class="clean">
+        <li>Compliance sign-off against SEBI advertisement norms for the product’s structure (PMS / AIF)</li>
+        <li>Risk-o-meter / risk disclosures and “past performance…” language</li>
+        <li>Verify every market number on this page against NSE, RBI, NSDL, MoSPI on the day of publication</li>
+      </ul></div>
+  </div>
+</section>
+
+<section class="sources">
+  <h3>Sources</h3>
+  <ol>
+    <li><a href="https://www.samco.in/knowledge-center/articles/nifty-gains-10-51-and-nifty-bank-rises-17-15-in-calendar-year-2025/" target="_blank" rel="noopener">Samco: Nifty +10.51% in CY2025 (close 26,129.6)</a></li>
+    <li><a href="https://www.ziromarket.com/blog/nifty-50-2026-bear-phase-what-happened" target="_blank" rel="noopener">Ziromarket: 2026 record high 26,373 and 2 Apr trough 22,182</a></li>
+    <li><a href="https://www.multibagg.ai/market-pulse/articles/nifty-50-h1-2026-outlook-cmr1v2pjcmd7wo20je21na6yz" target="_blank" rel="noopener">Multibagg: Nifty H1 2026 −8.7%</a></li>
+    <li><a href="https://www.outlookmoney.com/invest/nifty-september-derivatives-series-2026-fall-worst-in-25-years" target="_blank" rel="noopener">Outlook Money: Sept series −5.7%</a></li>
+    <li><a href="https://hdfcsky.com/news/market-close-report-today-october-26-2026-sensex-nifty-rise-as-markets-snap-four-day-losing-streak" target="_blank" rel="noopener">HDFC Sky: Nifty close 22,753.2 on 26 Oct</a></li>
+    <li><a href="https://hdfcsky.com/news/india-vix-rises-nifty-falls-crude-oil-global-markets-october-26-2026" target="_blank" rel="noopener">HDFC Sky: India VIX 17.41</a> · <a href="https://www.macrotrends.net/2603/vix-volatility-index-historical-chart" target="_blank" rel="noopener">VIX 52-wk range</a></li>
+    <li><a href="https://www.business-standard.com/markets/news/record-fpi-outflows-top-3-trillion-in-cy26-nearly-double-2025-tally-126101300072_1.html" target="_blank" rel="noopener">Business Standard: record FPI outflows ₹3.08 trillion</a> · <a href="https://www.thestatesman.com/business/fpis-pull-record-rs-3-08-lakh-crore-from-indian-equities-in-2026-nearly-double-2025-outflows-1503650699.html" target="_blank" rel="noopener">The Statesman</a> · <a href="https://www.multibagg.ai/market-pulse/articles/fii-record-outflow-march-2026-cmo9q04v6ugd2ph0j3z3orgsm" target="_blank" rel="noopener">March 2026 record</a></li>
+    <li><a href="https://www.scconline.com/blog/post/2026/10/09/rbi-hikes-repo-rate-to-5-50-percent-october-2026/" target="_blank" rel="noopener">SCC Online: RBI hikes repo to 5.50%</a> · <a href="https://www.corplawupdates.in/updates/rbi-mpc-minutes-october-2026-repo-rate-5-50-rate-cuts-off-table" target="_blank" rel="noopener">MPC minutes</a></li>
+    <li><a href="https://tradingeconomics.com/india/government-bond-yield/news/594949" target="_blank" rel="noopener">Trading Economics: India 10Y 7.465%</a> · <a href="https://indiamacroindicators.co.in/economic-indicators/10-year-credit-spread-aaa-rated-bonds-g-sec" target="_blank" rel="noopener">AAA–G-Sec spread</a></li>
+    <li><a href="https://www.econolens.co.in/news/india-cpi-inflation-september-2026-5-54-percent" target="_blank" rel="noopener">Econolens: CPI 5.54% Sept 2026</a> · <a href="https://www.finnovate.in/learn/blog/india-cpi-inflation-september-2026" target="_blank" rel="noopener">Finnovate</a> · <a href="https://oilprice.com/Latest-Energy-News/World-News/Indias-Inflation-Likely-Hit-54-in-September-as-Oil-Costs-Bite.html" target="_blank" rel="noopener">Oilprice</a></li>
+    <li><a href="https://equentis.com/blog/crude-oil-prices-today-brent-falls-below-115-as-us-iran-diplomatic-efforts-raise-hopes-of-de-escalation" target="_blank" rel="noopener">Equentis: Brent ~$115</a></li>
+    <li><a href="https://upstox.com/news/personal-finance/investing/hdfc-bank-icici-bank-punjab-national-bank-bank-of-baroda-fixed-deposit-rates-where-they-stand-after-rbi-october-repo-rate-hike/article-201783/" target="_blank" rel="noopener">Upstox: FD rates after October hike</a></li>
+    <li><a href="https://wolfstreet.com/2026/10/17/long-term-treasury-yields-buffeted-by-hot-inflation-and-cracks-in-ai-mania/" target="_blank" rel="noopener">Wolf Street: US 10Y 5.36% peak</a> · <a href="https://www.bloomberg.com/news/articles/2026-10-23/ai-trade-stumbles-again-as-investors-rediscover-treasury-haven" target="_blank" rel="noopener">Bloomberg: AI trade stumbles</a> · <a href="https://www.cnbc.com/2026/10/07/stock-market-today-live-updates-.html" target="_blank" rel="noopener">CNBC</a> · <a href="https://www.cnn.com/2026/10/26/business/markets-bonds-stocks-ai" target="_blank" rel="noopener">CNN</a> · <a href="https://247wallst.com/investing/2026/10/23/the-10-year-yield-just-fell-below-5-as-investors-fled-ai-stocks/" target="_blank" rel="noopener">24/7 Wall St</a></li>
+    <li><a href="https://indexpe.in/nifty-smallcap-50" target="_blank" rel="noopener">indexpe.in: index P/E vs medians</a> · <a href="https://indexpe.in/nifty-smallcap-250" target="_blank" rel="noopener">Smallcap 250</a> · <a href="https://indexpe.in/nifty-midcap-150" target="_blank" rel="noopener">Midcap 150</a></li>
+    <li><a href="https://bondscanner.com/blog/corporate-bond-interest-rates-india-2026" target="_blank" rel="noopener">Bondscanner: indicative yields by rating</a> (dated; pre-dates the G-Sec rise)</li>
+  </ol>
+  <p class="note">Internal working document for marketing and sales. Market figures were gathered from secondary sources on 27 Oct 2026; several outlets disagree slightly and some are not primary data. Nifty calendar-year returns 2008–2025 are approximate price returns. Yield Enhancer figures are targets, not actual or assured returns. Tax shown at 30% slab + 4% cess; surcharge and the investor’s own situation will change the result.</p>
+</section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+  if (!window.Chart) return;
+  const charts = [];
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const fmt = new Intl.NumberFormat('en-IN');
+
+  function build() {
+    charts.forEach(c => c.destroy()); charts.length = 0;
+    const C = { ink: css('--ink'), ink2: css('--ink-2'), line: css('--line'), brand: css('--brand'), amber: css('--amber'),
+      good: css('--good'), bad: css('--bad'), muted: css('--muted-bar'), surface: css('--surface') };
+    Chart.defaults.color = C.ink2;
+    Chart.defaults.font.family = '"IBM Plex Sans", system-ui, sans-serif';
+    Chart.defaults.font.size = 12;
+    Chart.defaults.borderColor = C.line;
+    Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.plugins.legend.labels.boxWidth = 12;
+    const grid = { color: C.line }, noGrid = { display: false };
+    const mk = (id, cfg) => { const el = document.getElementById(id); if (el) charts.push(new Chart(el, cfg)); };
+
+    // Exhibit 1: Nifty path
+    mk('cNifty', { type: 'line',
+      data: { labels: ['31 Dec 25', '5 Jan', '2 Apr', 'Mid-Jun', 'Aug expiry', '29 Sep', '26 Oct'],
+        datasets: [{ data: [26129.6, 26373.2, 22182.55, 23632, 24090.85, 22716.2, 22753.2], borderColor: C.brand, backgroundColor: C.brand + '22',
+          fill: true, tension: 0.25, pointRadius: 4, pointBackgroundColor: C.brand }] },
+      options: { plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt.format(c.parsed.y) } } },
+        scales: { y: { min: 21500, max: 27000, grid, ticks: { callback: v => fmt.format(v) } }, x: { grid: noGrid } } } });
+
+    // VIX
+    mk('cVix', { type: 'bar',
+      data: { labels: ['24 Dec 25 (low)', '27 Mar 26 (peak)', '23 Oct', '26 Oct'],
+        datasets: [{ data: [13.47, 31.05, 16.83, 17.41], backgroundColor: [C.muted, C.bad, C.amber, C.amber], borderRadius: 4 }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid }, x: { grid: noGrid } } } });
+
+    // FPI
+    mk('cFpi', { type: 'bar',
+      data: { labels: ['All of 2025', 'Jan–Sep 2026', 'Mar 2026', 'Sep 2026', '1–12 Oct 2026'],
+        datasets: [{ data: [166000, 308000, 113810, 35861, 47417], backgroundColor: [C.muted, C.bad, C.bad, C.amber, C.amber], borderRadius: 4 }] },
+      options: { plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => '₹' + fmt.format(c.parsed.y) + ' cr' } } },
+        scales: { y: { beginAtZero: true, grid, ticks: { callback: v => '₹' + (v / 100000).toFixed(1) + 'L cr' } }, x: { grid: noGrid } } } });
+
+    // CPI
+    mk('cCpi', { type: 'line',
+      data: { labels: ['Jul 26', 'Aug 26', 'Sep 26'],
+        datasets: [
+          { label: 'CPI %', data: [4.45, 4.83, 5.54], borderColor: C.bad, backgroundColor: C.bad, tension: 0.2, pointRadius: 5 },
+          { label: 'Repo %', data: [5.25, 5.25, 5.50], borderColor: C.brand, backgroundColor: C.brand, stepped: true, pointRadius: 0, borderDash: [5, 4] },
+          { label: '1-yr FD %', data: [6.25, 6.25, 6.25], borderColor: C.ink2, backgroundColor: C.ink2, pointRadius: 0, borderDash: [2, 3] } ] },
+      options: { plugins: { legend: { position: 'bottom' } }, scales: { y: { min: 4, max: 7, grid, ticks: { callback: v => v + '%' } }, x: { grid: noGrid } } } });
+
+    // Duration
+    mk('cDur', { type: 'bar',
+      data: { labels: ['Yield Enhancer (1.25)', 'Short-term AAA (2.5)', 'Corp bond fund (4)', '10Y G-Sec (6.8)', 'Long gilt (10)'],
+        datasets: [{ data: [-1.25, -2.5, -4, -6.8, -10], backgroundColor: [C.brand, C.muted, C.muted, C.bad, C.bad], borderRadius: 4 }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.x + '%' } } },
+        scales: { x: { min: -11, max: 0, grid, ticks: { callback: v => v + '%' } }, y: { grid: noGrid } } } });
+
+    // Ladder
+    mk('cLadder', { type: 'bar',
+      data: { labels: ['Savings a/c', '1-yr FD', 'AAA bond', 'Yield Enhancer @ 11% target'],
+        datasets: [
+          { label: 'Pre-tax', data: [2.7, 6.25, 8.0, 11.0], backgroundColor: C.muted, borderRadius: 3 },
+          { label: 'Post-tax (31.2%)', data: [1.86, 4.30, 5.50, 7.57], backgroundColor: C.brand, borderRadius: 3 },
+          { label: 'Real, post-tax (− 5.54% CPI)', data: [-3.68, -1.24, -0.04, 2.03], backgroundColor: [C.bad, C.bad, C.bad, C.good], borderRadius: 3 } ] },
+      options: { plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y.toFixed(2) + '%' } } },
+        scales: { y: { grid, ticks: { callback: v => v + '%' } }, x: { grid: noGrid } } } });
+
+    // Calendar-year returns with band
+    const years = ['2008','2009','2010','2011','2012','2013','2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024','2025','2026 YTD'];
+    const rets = [-51.8, 75.8, 17.9, -24.6, 27.7, 6.8, 31.4, -4.1, 3.0, 28.6, 3.2, 12.0, 14.9, 24.1, 4.3, 20.0, 8.8, 10.5, -12.9];
+    const band = { id: 'band', beforeDatasetsDraw(chart) {
+      const { ctx, chartArea: a, scales: { y } } = chart;
+      ctx.save(); ctx.fillStyle = C.amber + '66';
+      ctx.fillRect(a.left, y.getPixelForValue(12), a.right - a.left, y.getPixelForValue(10) - y.getPixelForValue(12));
+      ctx.restore(); } };
+    mk('cCal', { type: 'bar', plugins: [band],
+      data: { labels: years, datasets: [{ data: rets, borderRadius: 3,
+        backgroundColor: rets.map((v, i) => i === rets.length - 1 ? C.bad : v < 0 ? C.bad : v < 10 ? C.amber : C.muted) }] },
+      options: { plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y + '%' } } },
+        scales: { y: { min: -60, max: 80, grid, ticks: { callback: v => v + '%' } }, x: { grid: noGrid, ticks: { maxRotation: 60, minRotation: 45 } } } } });
+
+    // P/E premium
+    const pe = [['Nifty 50', 19.12, 22.14], ['Midcap 100', 26.63, 29.65], ['Midcap 150', 27.03, 29.56], ['MidSmall 400', 27.92, 30.09], ['Smallcap 250', 32.10, 28.31], ['Smallcap 50', 35.34, 28.18]];
+    const prem = pe.map(r => +((r[1] / r[2] - 1) * 100).toFixed(1));
+    mk('cPe', { type: 'bar',
+      data: { labels: pe.map(r => r[0] + ' (' + r[1] + '×)'), datasets: [{ data: prem, backgroundColor: prem.map(v => v > 0 ? C.bad : C.good), borderRadius: 4 }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => (c.parsed.x > 0 ? '+' : '') + c.parsed.x + '% vs median' } } },
+        scales: { x: { min: -20, max: 30, grid, ticks: { callback: v => v + '%' } }, y: { grid: noGrid } } } });
+
+    // Illustration
+    mk('cIllus', { type: 'bar',
+      data: { labels: ['Nifty 50', '1-yr FD 6.25%', 'YE @ 10%', 'YE @ 12%'],
+        datasets: [{ data: [87.08, 105.07, 108.09, 109.69], backgroundColor: [C.bad, C.muted, C.brand, C.brand], borderRadius: 4 }] },
+      options: { plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => '₹' + c.parsed.y.toFixed(1) + ' lakh' } } },
+        scales: { y: { min: 80, max: 112, grid, ticks: { callback: v => '₹' + v + 'L' } }, x: { grid: noGrid } } } });
+  }
+
+  build();
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', build); } catch (e) {}
+  new MutationObserver(build).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+})();
+</script>
